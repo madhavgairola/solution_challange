@@ -59,7 +59,18 @@ export class ShipmentEngine {
       if (ship.status !== 'moving') return;
 
       const edge = ship.currentEdge;
-      if (!edge || !edge.geometry) return;
+      
+      // FREEZE FIX: Guard against edges missing geometry (bidirectional sibling not yet rendered)
+      // Geometry is now proactively copied in renderEdges, but keep this as a safety net.
+      if (!edge || !edge.geometry || edge.geometry.length === 0) {
+        // Don't silently freeze — trigger a safe reroute attempt after a short delay
+        if (Date.now() - ship.lastRerouteTime > 3000) {
+          console.warn(`[FREEZE GUARD] Shipment ${ship.id} has null geometry on edge ${edge?.source}-${edge?.destination}. Triggering safe reroute.`);
+          ship.status = 'rerouting';
+          this._handleReroute(ship);
+        }
+        return;
+      }
 
       // Disruption Detection Check:
       // If the upcoming edge has been completely blocked by EventEngine (cost > 900)
@@ -77,9 +88,11 @@ export class ShipmentEngine {
       const currentDurationDays = edge.dynamic_time;
       let progressDelta = daysPassed / currentDurationDays;
       
-      // Physically slow down the agent when traversing extended geometric outer-bounds
+      // Evasion time penalty: ship is travelling a longer arc around the anomaly.
+      // 0.4x multiplier = ship takes 2.5x longer to complete the edge while evading.
+      // This correctly models the extra nautical distance of the detour arc.
       if (ship._isEvadingVisually) {
-         progressDelta *= 0.55; 
+         progressDelta *= 0.4; 
       }
       
       ship.progress += progressDelta;
@@ -260,6 +273,9 @@ export class ShipmentEngine {
         if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTimeDays)) {
              console.log(`[PREDICTIVE AI] Shipment ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d wait < ${bypassTimeDays.toFixed(1)}d bypass)`);
              ship.status = 'waiting';
+             // LOOP FIX: Stamp lastRerouteTime so evaluateGlobalDisruptions doesn't immediately
+             // re-trigger another reroute evaluation on this waiting ship in the same event cycle.
+             ship.lastRerouteTime = Date.now();
              return;
         }
      }

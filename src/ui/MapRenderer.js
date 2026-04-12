@@ -155,7 +155,17 @@ export class MapRenderer {
       const pathId1 = `${edge.source}-${edge.destination}`;
       const pathId2 = `${edge.destination}-${edge.source}`;
       
-      if (drawn.has(pathId1) || drawn.has(pathId2)) return;
+      if (drawn.has(pathId1) || drawn.has(pathId2)) {
+        // THE FIX: If the sibling direction was already drawn, copy its geometry (reversed)
+        // so this directional edge object is never left with geometry = null.
+        if (!edge.geometry) {
+          const sibling = edges.find(e => e.source === edge.destination && e.destination === edge.source);
+          if (sibling && sibling.geometry) {
+            edge.geometry = [...sibling.geometry].reverse();
+          }
+        }
+        return;
+      }
       drawn.add(pathId1);
 
       // Compute sea route geometry [lng, lat]
@@ -168,6 +178,12 @@ export class MapRenderer {
 
         // BIND PHYSICAL GEOMETRY COORDINATES TO EDGE OBJECT FOR SIMULATION ENGINE
         edge.geometry = route.geometry.coordinates;
+
+        // Copy geometry to the reverse-direction sibling so it never freezes when Dijkstra uses it
+        const reverseEdge = edges.find(e => e.source === edge.destination && e.destination === edge.source);
+        if (reverseEdge && !reverseEdge.geometry) {
+          reverseEdge.geometry = [...route.geometry.coordinates].reverse();
+        }
 
         const currentZoomWeight = Math.max(1.0, this.map.getZoom() * 0.7);
 
@@ -203,6 +219,12 @@ export class MapRenderer {
         // BIND PHYSICAL GEOMETRY COORDINATES TO EDGE OBJECT FOR SIMULATION ENGINE
         edge.geometry = latlngs.map(l => [l[1], l[0]]); // GeoJSON specification requires [lng, lat]
         
+        // Copy reversed fallback to sibling edge too
+        const reverseEdgeFallback = edges.find(e => e.source === edge.destination && e.destination === edge.source);
+        if (reverseEdgeFallback && !reverseEdgeFallback.geometry) {
+          reverseEdgeFallback.geometry = latlngs.map(l => [l[1], l[0]]).reverse();
+        }
+
         const currentOpacity = this.activePortId ? (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId) ? 1.0 : 0.15) : 0.5;
         const currentColor = this.activePortId && (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId)) ? '#3ecf8e' : '#cbd5e1';
 
