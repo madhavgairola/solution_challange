@@ -66,13 +66,19 @@ shipmentEngine.telemetryPanel = telemetryPanel;
 
 console.log('✅ Visualization Engine Hooked.');
 
+window.simulationSpeed = 1.0;
+
 // Bind main game loop
 let lastTime = performance.now();
 function gameLoop(currentTime) {
-  const dt = currentTime - lastTime;
+  let dt = currentTime - lastTime;
   lastTime = currentTime;
   
+  // Real-time speed modulation wrapper
+  dt *= window.simulationSpeed || 1.0;
+  
   shipmentEngine.update(dt);
+  eventEngine.update(dt);
   
   requestAnimationFrame(gameLoop);
 }

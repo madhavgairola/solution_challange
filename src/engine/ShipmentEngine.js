@@ -211,6 +211,31 @@ export class ShipmentEngine {
      // Attempt standard re-route dodging the blocked edges natively dropped by RoutingEngine
      let routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
 
+     // PREDICTIVE AI: Wait vs Bypass Evaluation
+     if (routingResult) {
+        let bypassTime = routingResult.totalTime;
+        
+        let origBaseTime = 0;
+        for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
+           origBaseTime += ship.pathEdges[i].base_time;
+        }
+
+        let maxEventDuration = 0;
+        if (window.simulation && window.simulation.events) {
+           for (const ev of window.simulation.events.activeEvents.values()) {
+              if (ev.durationDays) maxEventDuration = Math.max(maxEventDuration, ev.durationDays);
+           }
+        }
+        
+        // If dropping anchor and waiting for the storm to expire is mathematically faster than the detour...
+        // e.g. Bypass takes 20 days. Normal path takes 5 days. Storm lasts 3 days. Wait (8d) < Bypass (20d).
+        if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTime)) {
+             console.log(`[PREDICTIVE AI] Shipment ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d predicted < ${bypassTime.toFixed(1)}d bypass)`);
+             ship.status = 'waiting';
+             return;
+        }
+     }
+
      if (!routingResult || routingResult.edges.length === 0) {
         console.warn(`Shipment ${ship.id} destination ${targetNode} completely blockaded.`);
         

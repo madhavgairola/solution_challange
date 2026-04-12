@@ -41,10 +41,45 @@ export class SandboxDashboard {
            <button id="btn-spawn-target" class="dashboard-btn spawn-target">🎯 Spawn Targeted Route</button>
         </div>
 
+        <div class="targeted-spawn-box" style="margin-top: 10px;">
+           <label>Simulation Clock Speed:</label>
+           <input type="range" id="sim-speed-slider" min="0" max="5" step="0.1" value="1" style="width: 100%;">
+           <div style="display: flex; justify-content: space-between; font-size: 10px; color:#94a3b8;">
+             <span>Paused</span>
+             <span id="speed-display">1.0x</span>
+             <span>Max Warp</span>
+           </div>
+        </div>
+
         <button id="btn-spawn" class="dashboard-btn">🚢 Spawn Random Shipment</button>
         <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
-        <button id="btn-storm" class="dashboard-btn warning">🌩️ Add China Sea Storm</button>
-        <button id="btn-clear" class="dashboard-btn clear">♻️ Clear Geometries</button>
+        <button id="btn-deploy-custom" class="dashboard-btn warning" style="border: 1px solid #f59e0b;">⚙️ Deploy Custom Anomaly</button>
+        <button id="btn-clear" class="dashboard-btn clear">♻️ Clear All Geometries</button>
+      </div>
+
+      <!-- Configurator Modal (Hidden by Default) -->
+      <div id="anomaly-config-modal" class="anomaly-modal" style="display: none;">
+         <h4>Deploy Atmospheric Anomaly</h4>
+         <p>Target Coordinates Acquired.</p>
+         
+         <label>Radius Influence (km): <span id="radius-val">800</span></label>
+         <input type="range" id="anomaly-radius" min="100" max="3000" step="50" value="800">
+         
+         <label>Severity Tier:</label>
+         <select id="anomaly-severity" class="dash-select">
+            <option value="mild">Mild (10% Delay / Tolerable)</option>
+            <option value="warning" selected>Warning (25% Delay / Evade)</option>
+            <option value="critical">Critical (50% Delay / Critical)</option>
+            <option value="blocked">Impassable (Physical Blockade)</option>
+         </select>
+         
+         <label>Temporal Expiry (Simulation Days): <span id="duration-val">5</span></label>
+         <input type="range" id="anomaly-duration" min="1" max="60" step="1" value="5">
+         
+         <div style="display:flex; gap:10px; margin-top: 15px;">
+            <button id="btn-cancel-anomaly" class="dashboard-btn clear" style="flex:1;">Cancel</button>
+            <button id="btn-confirm-anomaly" class="dashboard-btn warning" style="flex:1;">Initiate</button>
+         </div>
       </div>
     `;
   }
@@ -105,10 +140,45 @@ export class SandboxDashboard {
 
     const handleStorm = () => {
        const sim = window.simulation;
-       if (sim && sim.events) {
-          sim.events.injectGeometricEvent('china_storm', {lat: 25.5, lng: 125.0}, 800000, 'warning', 'Typhoon Risk');
-       }
+       if (!sim || !sim.events) return;
+       
+       // Flag deployment mode
+       window._isDeployingAnomaly = true;
+       alert("Target Acquisition Mode Active: Click anywhere on the map to define epicenter.");
+       
+       const deployBtn = this.element.querySelector('#btn-deploy-custom');
+       deployBtn.innerHTML = '🎯 Awaiting Coordinates...';
+       deployBtn.style.animation = 'pulseWarning 1.5s infinite';
     };
+
+    // Attach Map Click Listener safely (poll for mapRenderer)
+    const mapClickListener = (e) => {
+        if (!window._isDeployingAnomaly) return;
+        
+        // Grab pos
+        window._pendingAnomalyCoords = e.latlng;
+        window._isDeployingAnomaly = false;
+        
+        // Reset button
+        const deployBtn = this.element.querySelector('#btn-deploy-custom');
+        deployBtn.innerHTML = '⚙️ Deploy Custom Anomaly';
+        deployBtn.style.animation = 'none';
+
+        // Show configuration overlay
+        this.element.querySelector('#anomaly-config-modal').style.display = 'block';
+    };
+
+    // Assuming we can grab the leaf map directly via class name or internal window ref
+    if (window.simulation && window.simulation.shipments && window.simulation.shipments.mapRenderer) {
+        window.simulation.shipments.mapRenderer.map.on('click', mapClickListener);
+    } else {
+        // Fallback polling if initialized early
+        setTimeout(() => {
+           if (window.simulation && window.simulation.shipments && window.simulation.shipments.mapRenderer) {
+              window.simulation.shipments.mapRenderer.map.on('click', mapClickListener);
+           }
+        }, 1000);
+    }
 
     const handleClear = () => {
        const sim = window.simulation;
@@ -118,9 +188,53 @@ export class SandboxDashboard {
        }
     };
 
+    // Anomaly Configuration Binding
+    const radiusInput = this.element.querySelector('#anomaly-radius');
+    const radiusVal = this.element.querySelector('#radius-val');
+    radiusInput.addEventListener('input', e => radiusVal.innerText = e.target.value);
+
+    const durInput = this.element.querySelector('#anomaly-duration');
+    const durVal = this.element.querySelector('#duration-val');
+    durInput.addEventListener('input', e => durVal.innerText = e.target.value);
+
+    this.element.querySelector('#btn-cancel-anomaly').addEventListener('click', () => {
+       this.element.querySelector('#anomaly-config-modal').style.display = 'none';
+       window._pendingAnomalyCoords = null;
+    });
+
+    this.element.querySelector('#btn-confirm-anomaly').addEventListener('click', () => {
+       const sim = window.simulation;
+       if (sim && sim.events && window._pendingAnomalyCoords) {
+          const rMs = parseInt(radiusInput.value) * 1000;
+          const sev = this.element.querySelector('#anomaly-severity').value;
+          const days = parseInt(durInput.value);
+          const name = `Anomaly_${Math.floor(Math.random()*1000)}`;
+          
+          sim.events.injectGeometricEvent(
+              name.toLowerCase(), 
+              window._pendingAnomalyCoords, 
+              rMs, 
+              sev, 
+              `Custom ${sev.toUpperCase()} System`, 
+              days
+          );
+
+          this.element.querySelector('#anomaly-config-modal').style.display = 'none';
+          window._pendingAnomalyCoords = null;
+       }
+    });
+
+    // Speed Slider Binding
+    const speedSlider = this.element.querySelector('#sim-speed-slider');
+    const speedDisplay = this.element.querySelector('#speed-display');
+    speedSlider.addEventListener('input', (e) => {
+       window.simulationSpeed = parseFloat(e.target.value);
+       speedDisplay.innerText = window.simulationSpeed.toFixed(1) + 'x';
+    });
+
     this.element.querySelector('#btn-spawn').addEventListener('click', handleSpawn);
     this.element.querySelector('#btn-suez').addEventListener('click', handleSuez);
-    this.element.querySelector('#btn-storm').addEventListener('click', handleStorm);
+    this.element.querySelector('#btn-deploy-custom').addEventListener('click', handleStorm);
     this.element.querySelector('#btn-clear').addEventListener('click', handleClear);
   }
 }

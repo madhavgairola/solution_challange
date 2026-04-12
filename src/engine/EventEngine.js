@@ -41,7 +41,7 @@ export class EventEngine {
   }
 
   // Example: injectGeometricEvent('storm1', {lat: 10, lng: 50}, 500000, 'warning', 'Monsoon block')
-  injectGeometricEvent(id, position, radius, severity, description = "Areal Disruption") {
+  injectGeometricEvent(id, position, radius, severity, description = "Areal Disruption", durationDays = null) {
      const event = {
         id,
         ruleKey: 'GEOGRAPHIC_DISRUPTION',
@@ -49,7 +49,8 @@ export class EventEngine {
         position, // {lat, lng}
         radius,   // in meters
         severity, // mild, warning, critical, blocked
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        durationDays // Internal time bound execution limits
      };
      this.activeEvents.set(id, event);
      this._recalculateAllWeights();
@@ -59,6 +60,28 @@ export class EventEngine {
     if(!this.activeEvents.has(id)) return;
     this.activeEvents.delete(id);
     this._recalculateAllWeights();
+  }
+
+  update(dt) {
+     const simulationMultiplier = 1000000;
+     const dtSimulatedMs = dt * simulationMultiplier;
+     const daysPassed = dtSimulatedMs / (24 * 60 * 60 * 1000);
+
+     let stateChanged = false;
+     for (const [id, event] of this.activeEvents.entries()) {
+        if (event.durationDays !== undefined && event.durationDays > 0) {
+           event.durationDays -= daysPassed;
+           if (event.durationDays <= 0) {
+              console.log(`[TEMPORAL] Event ${id} naturally expired from internal physics state.`);
+              this.activeEvents.delete(id);
+              stateChanged = true;
+           }
+        }
+     }
+     
+     if (stateChanged) {
+        this._recalculateAllWeights();
+     }
   }
 
   _applyEventImpact(event) {
