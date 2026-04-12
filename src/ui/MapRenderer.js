@@ -18,21 +18,31 @@ export class MapRenderer {
     this.nodeLayers = new Map();
     this.edgeLayers = new Map();
 
-    // Dynamically scale pathway line thicknesses with map zooming to simulate true physical geographic size
+    // Dynamically scale pathway line thicknesses and node sizes with map zooming to simulate true physical geographic size
     this.map.on('zoom', () => {
-      this.updateLineWeights();
+      this.updateVisualScales();
     });
   }
 
-  updateLineWeights() {
+  updateVisualScales() {
     const zoom = this.map.getZoom();
     // Scale increased per user request. Zoom 2 becomes 1.5px, zoom 6 becomes 4.2px.
     const dynamicWeight = Math.max(1.0, zoom * 0.7);
+    // Scale port radius: Zoom 2 becomes ~2.4px, Zoom 6 becomes ~7.2px
+    const dynamicRadius = Math.max(2.0, zoom * 1.2);
 
     if (this.edgeLayers) {
       this.edgeLayers.forEach(layer => {
         if (layer.setStyle) {
           layer.setStyle({ weight: dynamicWeight });
+        }
+      });
+    }
+
+    if (this.nodeLayers) {
+      this.nodeLayers.forEach(marker => {
+        if (marker.setRadius) {
+          marker.setRadius(dynamicRadius);
         }
       });
     }
@@ -45,8 +55,10 @@ export class MapRenderer {
       if (node.status === 'waypoint') return;
 
       if (!this.nodeLayers.has(node.id) && node.lat !== undefined && node.lng !== undefined) {
+        const initialRadius = Math.max(2.0, this.map.getZoom() * 1.2);
+        
         const marker = L.circleMarker([node.lat, node.lng], {
-          radius: 2, 
+          radius: initialRadius, 
           fillColor: 'rgba(255, 255, 255, 0.25)', 
           color: 'transparent',
           weight: 0,
@@ -151,9 +163,12 @@ export class MapRenderer {
     }
     this.routeHighlights = [];
 
-    // Reset standard nodes to tiny resting translucent dots
+    const dynamicRadius = Math.max(2.0, this.map.getZoom() * 1.2);
+
+    // Reset standard nodes to dynamically scaled resting translucent dots
     this.nodeLayers.forEach(marker => {
-      marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', radius: 2, weight: 0 });
+      marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
+      marker.setRadius(dynamicRadius);
     });
 
     if (!routes || routes.length === 0) return;
