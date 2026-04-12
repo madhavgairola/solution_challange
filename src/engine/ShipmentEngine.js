@@ -73,7 +73,12 @@ export class ShipmentEngine {
       }
 
       const currentDurationDays = edge.dynamic_time;
-      const progressDelta = daysPassed / currentDurationDays;
+      let progressDelta = daysPassed / currentDurationDays;
+      
+      // Physically slow down the agent when traversing extended geometric outer-bounds
+      if (ship._isEvadingVisually) {
+         progressDelta *= 0.55; 
+      }
       
       ship.progress += progressDelta;
 
@@ -108,6 +113,8 @@ export class ShipmentEngine {
       if (!ship.currentLatLng || !window.simulation || !window.simulation.events) return;
       
       const activeEvents = window.simulation.events.activeEvents;
+      let isEvading = false;
+
       for (const event of activeEvents.values()) {
          if (!event.position || !event.radius || event.ruleKey !== 'GEOGRAPHIC_DISRUPTION') continue;
 
@@ -124,32 +131,38 @@ export class ShipmentEngine {
          const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda/2) * Math.sin(dLambda/2);
          const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-         if (dist < event.radius) {
-            // AGENT CAUGHT IN AREA-OF-EFFECT! Actively deflect geometric projection line.
-            const targetDist = event.radius * 1.05; // Force 5% outer bulge curve tightly hugging radius 
+         // ANTICIPATORY PARABOLIC DEFLECTION ALGORITHM
+         const influenceZone = event.radius * 2.5; // Start anticipating the storm at 2.5x radius boundary!
+         const targetDist = event.radius * 1.05;   // Force 5% outer bulge curve tightly hugging radius 
+
+         if (dist < influenceZone) {
+            isEvading = true;
+            
+            // Calculate interpolation: 0 at outer boundary -> 1 at perfect dead-center
+            const intensity = 1.0 - (dist / influenceZone);
+            
+            // Square it for a smooth C1 parabolic easing curve natively forcing the output >= targetDist unconditionally! 
+            const pushDist = targetDist * (intensity * intensity); 
+            const projectedTargetDist = dist + pushDist;
             
             const dLat = ship.currentLatLng[0] - event.position.lat;
             let dLng = ship.currentLatLng[1] - event.position.lng;
             
             if (dLng > 180) dLng -= 360;
             if (dLng < -180) dLng += 360;
-            if (dLat === 0 && dLng === 0) dLng = 0.001; // Avoid perfect center zero-vector crash
+            if (dLat === 0 && dLng === 0) dLng = 0.001; 
             
-            // Ray scalar based natively on projection intersection distances
-            const scalar = targetDist / dist;
+            const scalar = projectedTargetDist / dist;
             
             const deflectedLat = event.position.lat + (dLat * scalar);
             const deflectedLng = event.position.lng + (dLng * scalar);
             
             ship.currentLatLng = [deflectedLat, deflectedLng];
-            
-            // Telemetry formatting hook - don't permanently alter moving since it's structurally progressing still
-            if (ship.status === 'moving') {
-                ship._isEvadingVisually = true;
-            }
-         } else {
-            ship._isEvadingVisually = false;
          }
+      }
+      
+      if (ship.status === 'moving') {
+         ship._isEvadingVisually = isEvading;
       }
   }
 

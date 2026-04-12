@@ -53,35 +53,38 @@ export class SandboxDashboard {
 
         <button id="btn-spawn" class="dashboard-btn">🚢 Spawn Random Shipment</button>
         <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
-        <button id="btn-deploy-custom" class="dashboard-btn warning" style="border: 1px solid #f59e0b;">⚙️ Deploy Custom Anomaly</button>
-        <button id="btn-clear" class="dashboard-btn clear">♻️ Clear All Geometries</button>
-      </div>
-
-      <!-- Configurator Modal (Hidden by Default) -->
-      <div id="anomaly-config-modal" class="anomaly-modal" style="display: none;">
-         <h4>Deploy Atmospheric Anomaly</h4>
-         <p>Target Coordinates Acquired.</p>
-         
-         <label>Radius Influence (km): <span id="radius-val">800</span></label>
-         <input type="range" id="anomaly-radius" min="100" max="3000" step="50" value="800">
-         
-         <label>Severity Tier:</label>
-         <select id="anomaly-severity" class="dash-select">
-            <option value="mild">Mild (10% Delay / Tolerable)</option>
-            <option value="warning" selected>Warning (25% Delay / Evade)</option>
-            <option value="critical">Critical (50% Delay / Critical)</option>
-            <option value="blocked">Impassable (Physical Blockade)</option>
-         </select>
-         
-         <label>Temporal Expiry (Simulation Days): <span id="duration-val">5</span></label>
-         <input type="range" id="anomaly-duration" min="1" max="60" step="1" value="5">
-         
-         <div style="display:flex; gap:10px; margin-top: 15px;">
-            <button id="btn-cancel-anomaly" class="dashboard-btn clear" style="flex:1;">Cancel</button>
-            <button id="btn-confirm-anomaly" class="dashboard-btn warning" style="flex:1;">Initiate</button>
-         </div>
-      </div>
+      <!-- Sandbox UI logic -->
     `;
+
+    // Ensure the modal directly anchors to the viewport ignoring Sidebar CSS constraints
+    if (!document.getElementById('anomaly-config-modal')) {
+      const modalHTML = `
+        <div id="anomaly-config-modal" class="anomaly-modal" style="display: none;">
+           <h4>Deploy Atmospheric Anomaly</h4>
+           <p>Target Coordinates Acquired.</p>
+           
+           <label>Radius Influence (km): <span id="radius-val">800</span></label>
+           <input type="range" id="anomaly-radius" min="100" max="3000" step="50" value="800">
+           
+           <label>Severity Tier:</label>
+           <select id="anomaly-severity" class="dash-select">
+              <option value="mild">Mild (10% Delay / Tolerable)</option>
+              <option value="warning" selected>Warning (25% Delay / Evade)</option>
+              <option value="critical">Critical (50% Delay / Critical)</option>
+              <option value="blocked">Impassable (Physical Blockade)</option>
+           </select>
+           
+           <label>Temporal Expiry (Simulation Days): <span id="duration-val">5</span></label>
+           <input type="range" id="anomaly-duration" min="1" max="60" step="1" value="5">
+           
+           <div style="display:flex; gap:10px; margin-top: 15px;">
+              <button id="btn-cancel-anomaly" class="dashboard-btn clear" style="flex:1;">Cancel</button>
+              <button id="btn-confirm-anomaly" class="dashboard-btn warning" style="flex:1;">Initiate</button>
+           </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
   }
 
   bindEvents() {
@@ -164,8 +167,8 @@ export class SandboxDashboard {
         deployBtn.innerHTML = '⚙️ Deploy Custom Anomaly';
         deployBtn.style.animation = 'none';
 
-        // Show configuration overlay
-        this.element.querySelector('#anomaly-config-modal').style.display = 'block';
+        // Show configuration overlay mapped natively
+        document.getElementById('anomaly-config-modal').style.display = 'block';
     };
 
     // Assuming we can grab the leaf map directly via class name or internal window ref
@@ -188,25 +191,25 @@ export class SandboxDashboard {
        }
     };
 
-    // Anomaly Configuration Binding
-    const radiusInput = this.element.querySelector('#anomaly-radius');
-    const radiusVal = this.element.querySelector('#radius-val');
+    // Anomaly Configuration Binding natively on document limits
+    const radiusInput = document.getElementById('anomaly-radius');
+    const radiusVal = document.getElementById('radius-val');
     radiusInput.addEventListener('input', e => radiusVal.innerText = e.target.value);
 
-    const durInput = this.element.querySelector('#anomaly-duration');
-    const durVal = this.element.querySelector('#duration-val');
+    const durInput = document.getElementById('anomaly-duration');
+    const durVal = document.getElementById('duration-val');
     durInput.addEventListener('input', e => durVal.innerText = e.target.value);
 
-    this.element.querySelector('#btn-cancel-anomaly').addEventListener('click', () => {
-       this.element.querySelector('#anomaly-config-modal').style.display = 'none';
+    document.getElementById('btn-cancel-anomaly').addEventListener('click', () => {
+       document.getElementById('anomaly-config-modal').style.display = 'none';
        window._pendingAnomalyCoords = null;
     });
 
-    this.element.querySelector('#btn-confirm-anomaly').addEventListener('click', () => {
+    document.getElementById('btn-confirm-anomaly').addEventListener('click', () => {
        const sim = window.simulation;
        if (sim && sim.events && window._pendingAnomalyCoords) {
           const rMs = parseInt(radiusInput.value) * 1000;
-          const sev = this.element.querySelector('#anomaly-severity').value;
+          const sev = document.getElementById('anomaly-severity').value;
           const days = parseInt(durInput.value);
           const name = `Anomaly_${Math.floor(Math.random()*1000)}`;
           
@@ -219,7 +222,7 @@ export class SandboxDashboard {
               days
           );
 
-          this.element.querySelector('#anomaly-config-modal').style.display = 'none';
+          document.getElementById('anomaly-config-modal').style.display = 'none';
           window._pendingAnomalyCoords = null;
        }
     });
