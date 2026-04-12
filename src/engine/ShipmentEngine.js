@@ -98,6 +98,24 @@ export class ShipmentEngine {
     return ship;
   }
 
+  // ── spawnShipmentWithRoute ───────────────────────────────────────────────
+  // Deploys a ship using a pre-calculated route from the Route Planner.
+  // The user picked this exact path; honor it without re-running Dijkstra.
+  // ──────────────────────────────────────────────────────────────────────────
+  spawnShipmentWithRoute(sourceId, destId, routeResult, options = {}) {
+    // Ensure edges array exists (Yen's paths may need reconstruction)
+    if (!routeResult.edges || routeResult.edges.length === 0) {
+      console.warn('[spawnShipmentWithRoute] Route missing edges — falling back to spawnShipment');
+      return this.spawnShipment(sourceId, destId, options);
+    }
+    // Temporarily patch routingEngine._dijkstra so spawnShipment uses our pre-built result
+    const original = this.routingEngine._dijkstra.bind(this.routingEngine);
+    this.routingEngine._dijkstra = () => routeResult;
+    const ship = this.spawnShipment(sourceId, destId, options);
+    this.routingEngine._dijkstra = original;
+    return ship;
+  }
+
   // ───────────────────────────────────────────────────────────────────
   // Build segment execution chain from edges with planned timing
   // ───────────────────────────────────────────────────────────────────

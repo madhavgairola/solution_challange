@@ -26,16 +26,19 @@ export class SandboxDashboard {
         <h3 class="dash-title">🧪 Simulation Sandbox</h3>
         <p class="panel-desc">Manual execution environment. Total system override controls active.</p>
         
-        <div class="targeted-spawn-box">
-           <label>Source Port:</label>
+        <div class="targeted-spawn-box" id="route-planner-box">
+           <div style="font-size:11px; color:#3ecf8e; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">🗺️ Route Planner</div>
+           
+           <label>Origin Port:</label>
            <select id="origin-select" class="dash-select">
               <option value="" disabled selected>-- Select Origin --</option>
               ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
            </select>
-           
-           <label>Destination (Child Connections):</label>
-           <select id="dest-select" class="dash-select" disabled>
-              <option value="" disabled selected>-- Awaiting Origin --</option>
+
+           <label style="margin-top:8px;">Destination Port:</label>
+           <select id="dest-select" class="dash-select">
+              <option value="" disabled selected>-- Select Destination --</option>
+              ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
            </select>
 
            <label style="margin-top:8px;">Cargo Type:</label>
@@ -57,7 +60,12 @@ export class SandboxDashboard {
               <option value="5">5 — Critical (Fastest)</option>
            </select>
 
-           <button id="btn-spawn-target" class="dashboard-btn spawn-target">🎯 Spawn Targeted Route</button>
+           <button id="btn-calc-routes" class="dashboard-btn spawn-target" style="margin-top:10px;">
+             🔍 Calculate Best Routes
+           </button>
+
+           <!-- Route results injected here dynamically -->
+           <div id="route-results-panel" style="margin-top:8px;"></div>
         </div>
 
         <div class="targeted-spawn-box" style="margin-top: 10px;">
@@ -117,48 +125,124 @@ export class SandboxDashboard {
        if (sim && sim.shipments) sim.shipments.spawnShipment(p1, p2);
     };
 
-    const originSelect = this.element.querySelector('#origin-select');
-    const destSelect = this.element.querySelector('#dest-select');
-    const btnSpawnTarget = this.element.querySelector('#btn-spawn-target');
+    // ── Route Planner ─────────────────────────────────────────────────
+    const originSelect  = this.element.querySelector('#origin-select');
+    const destSelect    = this.element.querySelector('#dest-select');
+    const calcBtn       = this.element.querySelector('#btn-calc-routes');
+    const resultsPanel  = this.element.querySelector('#route-results-panel');
 
-    originSelect.addEventListener('change', (e) => {
-       const originId = e.target.value;
-       const sim = window.simulation;
-       if (!sim || !sim.graph) return;
-
-       // Grab all valid topological children (edges connecting outwards)
-       const edges = sim.graph.getEdges(originId);
-       
-       destSelect.innerHTML = '<option value="" disabled selected>-- Select Child Destination --</option>';
-       
-       edges.forEach(edge => {
-          const childPort = PORTS.find(p => p.id === edge.destination);
-          if (childPort) {
-             destSelect.innerHTML += `<option value="${childPort.id}">${childPort.name}</option>`;
-          }
-       });
-
-       destSelect.disabled = false;
+    // Filter destination options dynamically (exclude origin)
+    originSelect.addEventListener('change', () => {
+      const originId = originSelect.value;
+      Array.from(destSelect.options).forEach(opt => {
+        opt.disabled = (opt.value === originId);
+      });
+      if (destSelect.value === originId) destSelect.value = '';
     });
 
-    btnSpawnTarget.addEventListener('click', () => {
-       const o = originSelect.value;
-       const d = destSelect.value;
-       if (!o || !d) {
-          alert('Please select both Origin and Destination children to deploy a target.');
+    calcBtn.addEventListener('click', () => {
+      const o = originSelect.value;
+      const d = destSelect.value;
+      if (!o || !d) { resultsPanel.innerHTML = '<p style="color:#f43f5e; font-size:11px;">⚠️ Select both Origin and Destination first.</p>'; return; }
+      if (o === d)  { resultsPanel.innerHTML = '<p style="color:#f43f5e; font-size:11px;">⚠️ Origin and Destination must differ.</p>'; return; }
+
+      const sim = window.simulation;
+      if (!sim || !sim.routing) { resultsPanel.innerHTML = '<p style="color:#f43f5e; font-size:11px;">⚠️ Routing engine not ready.</p>'; return; }
+
+      // Get cargo-aware weights
+      const cargoTypeVal  = this.element.querySelector('#cargo-type-select').value;
+      const priorityVal   = parseInt(this.element.querySelector('#priority-select').value) || 3;
+      const CARGO_WEIGHTS = {
+        general:       { w_time: 0.4, w_cost: 0.4, w_risk: 0.2 },
+        perishable:    { w_time: 0.8, w_cost: 0.1, w_risk: 0.1 },
+        oil:           { w_time: 0.2, w_cost: 0.3, w_risk: 0.5 },
+        high_priority: { w_time: 0.7, w_cost: 0.1, w_risk: 0.2 }
+      };
+      const baseWeights = CARGO_WEIGHTS[cargoTypeVal] || { w_time: 0.5, w_cost: 0.3, w_risk: 0.2 };
+      const pBias = 0.07 * (priorityVal - 3);
+      const weights = {
+        w_time: Math.max(0.05, baseWeights.w_time + pBias),
+        w_cost: Math.max(0.05, baseWeights.w_cost - pBias * 0.5),
+        w_risk: baseWeights.w_risk
+      };
+
+      resultsPanel.innerHTML = '<p style="color:#94a3b8; font-size:11px;">⏳ Computing routes...</p>';
+
+      // Run Yen\'s K-Shortest Paths (up to 3)
+      setTimeout(() => {
+        const routes = sim.routing.getKShortestPaths(o, d, weights, 3);
+        if (!routes || routes.length === 0) {
+          resultsPanel.innerHTML = '<p style="color:#f43f5e; font-size:11px;">❌ No viable routes found between these ports.</p>';
           return;
-       }
-       const sim = window.simulation;
-       if (sim && sim.shipments) {
-          const cargoType = document.getElementById('cargo-type-select')?.value || '';
-          const priority = parseInt(document.getElementById('priority-select')?.value) || 0;
-          const options = {};
-          if (cargoType) options.cargoType = cargoType;
-          if (priority) options.priority = priority;
-          sim.shipments.spawnShipment(o, d, options);
-          console.log(`[Targeted Spawn] Ship deployed from ${o} to ${d}`, options);
-       }
+        }
+
+        const ROUTE_LABELS = ['🥇 Optimal', '🥈 Alternative', '🥉 Alternate 2'];
+        const ROUTE_COLORS = ['#3ecf8e', '#fbbf24', '#fb923c'];
+
+        resultsPanel.innerHTML = routes.map((route, idx) => {
+          const hopChain = route.path.map(id => PORTS.find(p => p.id === id)?.name || id).join(' → ');
+          const totalDays = route.totalTime.toFixed(1);
+          const totalCost = route.totalCost ? Math.round(route.totalCost) : '—';
+          const totalRisk = route.totalRisk ? route.totalRisk.toFixed(2) : '—';
+          const hops = route.path.length - 1;
+          const color = ROUTE_COLORS[idx] || '#94a3b8';
+          const label = ROUTE_LABELS[idx] || `Route ${idx + 1}`;
+
+          return `
+            <div class="route-option-card" style="border-left: 3px solid ${color}; background: rgba(15,23,42,0.8); border-radius:6px; padding:10px; margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:${color}; font-size:11px; font-weight:700;">${label}</span>
+                <span style="color:#64748b; font-size:10px;">${hops} hop${hops !== 1 ? 's' : ''}</span>
+              </div>
+              <div style="font-size:10px; color:#cbd5e1; margin:5px 0; line-height:1.5;">${hopChain}</div>
+              <div style="display:flex; gap:10px; font-size:10px; color:#94a3b8; margin-bottom:8px;">
+                <span>⏱️ ${totalDays}d</span>
+                <span>💰 $${totalCost}</span>
+                <span>⚠️ Risk ${totalRisk}</span>
+              </div>
+              <button class="dashboard-btn" data-route-idx="${idx}" 
+                style="width:100%; padding:5px; font-size:11px; background: rgba(${idx===0?'62,207,142':'251,191,36'},0.1); border-color:${color}; color:${color};">
+                🚀 Deploy This Route
+              </button>
+            </div>`;
+        }).join('');
+
+        // Store routes for deploy handlers
+        window._calculatedRoutes = routes;
+        window._routeDeployOrigin = o;
+        window._routeDeployDest   = d;
+
+        // Bind deploy buttons
+        resultsPanel.querySelectorAll('[data-route-idx]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.routeIdx);
+            const chosenRoute = window._calculatedRoutes[idx];
+            const sim2 = window.simulation;
+            if (!sim2 || !sim2.shipments || !chosenRoute) return;
+
+            const cargoType = this.element.querySelector('#cargo-type-select').value;
+            const priority  = parseInt(this.element.querySelector('#priority-select').value) || 0;
+            const opts = {};
+            if (cargoType) opts.cargoType = cargoType;
+            if (priority)  opts.priority  = priority;
+
+            sim2.shipments.spawnShipmentWithRoute(
+              window._routeDeployOrigin,
+              window._routeDeployDest,
+              chosenRoute,
+              opts
+            );
+
+            // Visual feedback
+            btn.innerHTML = '✅ Deployed!';
+            btn.style.color = '#10b981';
+            btn.disabled = true;
+            setTimeout(() => { btn.innerHTML = '🚀 Deploy This Route'; btn.style.color = ''; btn.disabled = false; }, 2000);
+          });
+        });
+      }, 50);
     });
+
 
     const handleSuez = () => {
        const sim = window.simulation;

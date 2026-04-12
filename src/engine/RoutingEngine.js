@@ -131,6 +131,16 @@ export class RoutingEngine {
     };
   }
 
+  // Reconstruct edge objects for a given node path
+  _edgesForPath(path) {
+    const edges = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      const edge = this.graph.getEdges(path[i]).find(e => e.destination === path[i + 1]);
+      if (edge) edges.push(edge);
+    }
+    return edges;
+  }
+
   /**
    * Yen's Algorithm for K-Shortest Paths
    * Returns top topK loopless alternative paths
@@ -198,10 +208,9 @@ export class RoutingEngine {
 
           const potentialPath = { 
             path: fullPath, 
-            totalTime,
-            totalCost,
-            totalRisk,
-            score: totalScore 
+            totalTime, totalCost, totalRisk,
+            score: totalScore,
+            edges: this._edgesForPath(fullPath)
           };
 
           // Add to B if it's not already in B
