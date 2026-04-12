@@ -1,10 +1,13 @@
+import { ScheduleBoard } from './ScheduleBoard.js';
+
 export class NavSidebar {
   constructor(sandboxView, irlView, mapRenderer) {
-    this.sandboxView = sandboxView;
-    this.irlView = irlView;
-    this.mapRenderer = mapRenderer;
+    this.sandboxView   = sandboxView;
+    this.irlView       = irlView;
+    this.mapRenderer   = mapRenderer;
+    this.scheduleBoard = new ScheduleBoard(null);
 
-    this.expanded = false;
+    this.expanded    = false;
     this.currentView = null;
 
     // Create Root Elements
@@ -19,7 +22,7 @@ export class NavSidebar {
 
     this.render();
     this.bindEvents();
-    
+
     // Default boot
     this.switchDashboard('sandbox');
   }
@@ -37,9 +40,12 @@ export class NavSidebar {
         <div class="nav-item" data-target="irl">
           <span>🌍 Real-World Feed</span>
         </div>
+        <div class="nav-item" data-target="schedule">
+          <span>🗓️ Schedule Board</span>
+        </div>
       </div>
       <div id="dashboard-mount-point" class="dashboard-mount">
-         <!-- Dynamic Dashboard Content Injected Here -->
+        <!-- Dynamic Dashboard Content Injected Here -->
       </div>
     `;
   }
@@ -58,65 +64,68 @@ export class NavSidebar {
 
     const links = this.sidebar.querySelectorAll('.nav-item');
     links.forEach(link => {
-       link.addEventListener('click', (e) => {
-         const targetId = e.currentTarget.getAttribute('data-target');
-         this.switchDashboard(targetId);
-         
-         // Update active UI
-         links.forEach(l => l.classList.remove('active'));
-         e.currentTarget.classList.add('active');
-       });
+      link.addEventListener('click', (e) => {
+        const targetId = e.currentTarget.getAttribute('data-target');
+        this.switchDashboard(targetId);
+
+        // Update active UI
+        links.forEach(l => l.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+      });
     });
   }
 
   switchDashboard(viewId) {
     // 1. Unmount existing
     if (this.currentView) {
-       this.currentView.unmount();
+      this.currentView.unmount();
     }
 
-    // 2. Clear massive simulation state to baseline 
-    this._wipeSimulationClean();
+    // 2. Only wipe simulation state when switching away from schedule board
+    //    (schedule board is read-only — no need to destroy ships)
+    if (viewId !== 'schedule') {
+      this._wipeSimulationClean();
+    }
 
     // 3. Mount targeted component
     const mountPoint = this.sidebar.querySelector('#dashboard-mount-point');
     if (viewId === 'sandbox') {
-       this.currentView = this.sandboxView;
-       this.sandboxView.container = mountPoint;
+      this.currentView = this.sandboxView;
+      this.sandboxView.container = mountPoint;
     } else if (viewId === 'irl') {
-       this.currentView = this.irlView;
-       this.irlView.container = mountPoint;
+      this.currentView = this.irlView;
+      this.irlView.container = mountPoint;
+    } else if (viewId === 'schedule') {
+      this.currentView = this.scheduleBoard;
+      this.scheduleBoard.container = mountPoint;
     }
 
     if (this.currentView) {
-       this.currentView.mount();
+      this.currentView.mount();
     }
   }
 
   _wipeSimulationClean() {
-     const sim = window.simulation;
-     if (!sim) return;
+    const sim = window.simulation;
+    if (!sim) return;
 
-     // 1. Wipe Shipments
-     if (sim.shipments) {
-        // Stop all active
-        sim.shipments.shipments.clear();
-        // Clear mapping visuals natively
-        if(this.mapRenderer && this.mapRenderer.shipmentLayers) {
-           for(const marker of this.mapRenderer.shipmentLayers.values()) {
-              this.mapRenderer.map.removeLayer(marker);
-           }
-           this.mapRenderer.shipmentLayers.clear();
+    // 1. Wipe Shipments
+    if (sim.shipments) {
+      sim.shipments.shipments.clear();
+      if (this.mapRenderer && this.mapRenderer.shipmentLayers) {
+        for (const marker of this.mapRenderer.shipmentLayers.values()) {
+          this.mapRenderer.map.removeLayer(marker);
         }
-     }
+        this.mapRenderer.shipmentLayers.clear();
+      }
+    }
 
-     // 2. Wipe Events (IRL and Sandbox manually spawned)
-     if (sim.events) {
-        sim.events.activeEvents.clear();
-        sim.events._recalculateAllWeights();
-        // Map renderer automatically clears eventLayers on _recalculateAllWeights calling renderEvents()
-     }
+    // 2. Wipe Events
+    if (sim.events) {
+      sim.events.activeEvents.clear();
+      sim.events._recalculateAllWeights();
+    }
 
-     console.log('🧹 Simulation Graph Wiped Clean.');
+    console.log('🧹 Simulation Graph Wiped Clean.');
   }
 }
