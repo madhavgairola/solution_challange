@@ -718,6 +718,53 @@ h1 {
   color: #10b981;
 }
 
+/* Custom Targeted Spawn Box */
+.targeted-spawn-box {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.targeted-spawn-box label {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  padding-left: 2px;
+}
+
+.dash-select {
+  background: rgba(30, 41, 59, 1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+}
+
+.dash-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dashboard-btn.spawn-target {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  margin-top: 4px;
+}
+
+.dashboard-btn.spawn-target:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38bdf8;
+}
+
 /* Live Intelligence Terminal Feed */
 .live-terminal {
   background: rgba(0, 0, 0, 0.6);

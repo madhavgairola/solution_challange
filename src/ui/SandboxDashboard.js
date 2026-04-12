@@ -25,6 +25,22 @@ export class SandboxDashboard {
       <div class="control-group">
         <h3 class="dash-title">🧪 Simulation Sandbox</h3>
         <p class="panel-desc">Manual execution environment. Total system override controls active.</p>
+        
+        <div class="targeted-spawn-box">
+           <label>Source Port:</label>
+           <select id="origin-select" class="dash-select">
+              <option value="" disabled selected>-- Select Origin --</option>
+              ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+           </select>
+           
+           <label>Destination (Child Connections):</label>
+           <select id="dest-select" class="dash-select" disabled>
+              <option value="" disabled selected>-- Awaiting Origin --</option>
+           </select>
+           
+           <button id="btn-spawn-target" class="dashboard-btn spawn-target">🎯 Spawn Targeted Route</button>
+        </div>
+
         <button id="btn-spawn" class="dashboard-btn">🚢 Spawn Random Shipment</button>
         <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
         <button id="btn-storm" class="dashboard-btn warning">🌩️ Add China Sea Storm</button>
@@ -41,6 +57,44 @@ export class SandboxDashboard {
        const sim = window.simulation;
        if (sim && sim.shipments) sim.shipments.spawnShipment(p1, p2);
     };
+
+    const originSelect = this.element.querySelector('#origin-select');
+    const destSelect = this.element.querySelector('#dest-select');
+    const btnSpawnTarget = this.element.querySelector('#btn-spawn-target');
+
+    originSelect.addEventListener('change', (e) => {
+       const originId = e.target.value;
+       const sim = window.simulation;
+       if (!sim || !sim.graph) return;
+
+       // Grab all valid topological children (edges connecting outwards)
+       const edges = sim.graph.getEdges(originId);
+       
+       destSelect.innerHTML = '<option value="" disabled selected>-- Select Child Destination --</option>';
+       
+       edges.forEach(edge => {
+          const childPort = PORTS.find(p => p.id === edge.destination);
+          if (childPort) {
+             destSelect.innerHTML += `<option value="${childPort.id}">${childPort.name}</option>`;
+          }
+       });
+
+       destSelect.disabled = false;
+    });
+
+    btnSpawnTarget.addEventListener('click', () => {
+       const o = originSelect.value;
+       const d = destSelect.value;
+       if (!o || !d) {
+          alert('Please select both Origin and Destination children to deploy a target.');
+          return;
+       }
+       const sim = window.simulation;
+       if (sim && sim.shipments) {
+          sim.shipments.spawnShipment(o, d);
+          console.log(`[Targeted Spawn] Ship manually deployed from ${o} to direct child ${d}`);
+       }
+    });
 
     const handleSuez = () => {
        const sim = window.simulation;
