@@ -37,7 +37,9 @@ export class ShipmentEngine {
       currentEdgeIndex: 0,
       currentEdge: routingResult.edges[0],
       progress: 0.0, // 0.0 to 1.0 along currentEdge
-      currentLatLng: null
+      currentLatLng: null,
+      
+      lastRerouteTime: 0 // Cooldown protection lock
     };
 
     // Calculate initial position
@@ -58,12 +60,14 @@ export class ShipmentEngine {
 
       // Disruption Detection Check:
       // If the upcoming edge has been completely blocked by EventEngine (cost > 900)
-      // or if risk goes critically high mid-transit, we need to handle it.
-      if (edge.dynamic_time >= 900) {
-         // The edge is blocked. 
-         console.warn(`Shipment ${ship.id} encountered a blockade on edge ${edge.source}-${edge.destination}`);
-         ship.status = 'rerouting';
-         this._handleReroute(ship);
+      if ((edge.dynamic_time ?? edge.base_time) >= 900) {
+         console.warn(`Shipment ${ship.id} violently halted by blockade on edge ${edge.source}-${edge.destination}`);
+         if (Date.now() - ship.lastRerouteTime > 3000) {
+            ship.status = 'rerouting';
+            this._handleReroute(ship);
+         } else {
+            ship.status = 'waiting'; // Stutter protection
+         }
          return;
       }
 
@@ -96,22 +100,34 @@ export class ShipmentEngine {
   }
 
   evaluateGlobalDisruptions() {
-    // Step 9: Push-based trigger when EventEngine alters the graph
+    // Step 9 + 4 Upgrades: Push-based validation running intelligent Health Score tolerances
     this.shipments.forEach(ship => {
-      if (ship.status !== 'moving') return;
+      if (ship.status !== 'moving' && ship.status !== 'waiting') return;
       
-      let pathValid = true;
-      // Scan all completely remaining edges downstream mathematically
+      // Enforce temporal cooldown window to stabilize reroute mapping storms (e.g., 5 seconds)
+      if (Date.now() - ship.lastRerouteTime < 5000) return;
+      
+      let isPathBlocked = false;
+      let originalScore = 0;
+      let newScore = 0;
+      
+      // Calculate isolated path segment health to dodge "global" scanning loops
       for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
          const edge = ship.pathEdges[i];
-         if (edge.dynamic_time >= 900) {
-            pathValid = false;
+         
+         if ((edge.dynamic_time ?? edge.base_time) >= 900) {
+            isPathBlocked = true;
             break;
          }
+
+         const defaultParams = { dynamic_time: edge.base_time, dynamic_cost: edge.base_cost, dynamic_risk: edge.base_risk };
+         originalScore += this.routingEngine.calculateEdgeScore(defaultParams, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+         newScore += this.routingEngine.calculateEdgeScore(edge, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
       }
 
-      if (!pathValid) {
-         console.warn(`[EVENT PULSE] Shipment ${ship.id} detected downstream graph blockade! Triggering evasive recomputation.`);
+      // If literally impassable, OR if severity degrades map health past 30% volatility threshold
+      if (isPathBlocked || newScore > (originalScore * 1.3)) {
+         console.warn(`[INTELLIGENCE PULSE] Shipment ${ship.id} detected downstream volatility (Blocked: ${isPathBlocked}, Health Degraded: ${((newScore/originalScore)*100).toFixed(0)}%). Executing evasive actions.`);
          ship.status = 'rerouting';
          this._handleReroute(ship);
       }
@@ -169,6 +185,7 @@ export class ShipmentEngine {
      // Actually, if it's returning, we simply set progress = 0 logically and visually 'warp' it to the node, 
      // or just resume from 0 as if it successfully traversed the node. For real simulation we'd create a specific backtrack.
      ship.progress = 0.0;
+     ship.lastRerouteTime = Date.now();
      ship.status = 'moving';
   }
 
