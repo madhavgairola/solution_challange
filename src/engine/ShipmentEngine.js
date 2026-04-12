@@ -228,11 +228,8 @@ export class ShipmentEngine {
     const currentLng = lng1 + dLng * segmentProgress;
     const currentLat = lat1 + (lat2 - lat1) * segmentProgress;
     
-    // Resolve Wrap coordinates purely for leaf visualization bounds
-    let visLng = currentLng;
-    if (visLng < -180) visLng += 360;
-    else if (visLng > 180) visLng -= 360;
-
-    ship.currentLatLng = [currentLat, visLng];
+    // Explicitly DO NOT artificially bound to [-180, 180]. Leaflet polys project across +180 and -180.
+    // If the path geometry flows to 242 (trans-pacific), the ship must flow to 242 to physically stay glued to the rendered arc.
+    ship.currentLatLng = [currentLat, currentLng];
   }
 }
