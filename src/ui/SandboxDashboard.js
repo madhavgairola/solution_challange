@@ -53,7 +53,9 @@ export class SandboxDashboard {
 
         <button id="btn-spawn" class="dashboard-btn">🚢 Spawn Random Shipment</button>
         <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
-      <!-- Sandbox UI logic -->
+        <button id="btn-deploy-custom" class="dashboard-btn warning" style="border: 1px solid #f59e0b;">⚙️ Deploy Custom Anomaly</button>
+        <button id="btn-clear" class="dashboard-btn clear">♻️ Clear All Geometries</button>
+      </div>
     `;
 
     // Ensure the modal directly anchors to the viewport ignoring Sidebar CSS constraints
