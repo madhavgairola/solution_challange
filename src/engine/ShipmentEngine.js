@@ -96,18 +96,46 @@ export class ShipmentEngine {
   }
 
   _handleReroute(ship) {
-     // A ship caught mid-route during a blockage generally has to return to the source port of the current edge
-     // and find a new route to the destination from there.
      const currentNode = ship.currentEdge.source;
-     const routingResult = this.routingEngine._dijkstra(currentNode, ship.destination, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+     let targetNode = ship.destination;
+
+     // Attempt standard re-route dodging the blocked edges natively dropped by RoutingEngine
+     let routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
 
      if (!routingResult || routingResult.edges.length === 0) {
-        console.error(`Shipment ${ship.id} is totally trapped at ${currentNode}. Status set to waiting.`);
-        ship.status = 'waiting';
-        return;
+        console.warn(`Shipment ${ship.id} destination ${targetNode} completely blockaded.`);
+        
+        // INTELLIGENCE FALLBACK: Find closest geographical safe neighbor to the blocked destination
+        // Grab the edges coming IN or OUT of the destination that aren't blocked!
+        const destEdges = this.routingEngine.graph.getEdges(targetNode);
+        let safeNeighbor = null;
+        let lowestCost = Infinity;
+
+        destEdges.forEach(e => {
+           if (e.dynamic_time < 900) {
+              const cost = e.dynamic_time;
+              if (cost < lowestCost) {
+                 lowestCost = cost;
+                 safeNeighbor = e.destination === targetNode ? e.source : e.destination;
+              }
+           }
+        });
+
+        if (safeNeighbor) {
+           console.log(`Shipment ${ship.id} defaulting delivery intercept to nearby safe harbor: ${safeNeighbor}`);
+           targetNode = safeNeighbor;
+           ship.destination = safeNeighbor; // Perm-update manifest
+           routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+        }
+
+        if (!routingResult || routingResult.edges.length === 0) {
+           console.error(`Shipment ${ship.id} totally trapped. Status fixed to waiting at ${currentNode}.`);
+           ship.status = 'waiting';
+           return;
+        }
      }
 
-     console.log(`Shipment ${ship.id} successfully generated theoretical reroute path from ${currentNode}. Commencing turn around.`);
+     console.log(`Shipment ${ship.id} locked new evasive routing to ${targetNode}.`);
      
      ship.pathNodes = routingResult.path;
      ship.pathEdges = routingResult.edges;

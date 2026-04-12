@@ -69,6 +69,9 @@ export class RoutingEngine {
         const edgeId2 = `${neighbor}-${currNode}`;
         if (excludedEdges.has(edgeId1) || excludedEdges.has(edgeId2)) continue;
 
+        // Strict IMPASSABLE check (Black severity)
+        if ((edge.dynamic_time ?? edge.base_time) >= 900) continue;
+
         const score = this.calculateEdgeScore(edge, weights);
         const totalDist = distances[currNode] + score;
 
