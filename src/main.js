@@ -8,7 +8,9 @@ import { PORTS, ROUTES } from './data/network';
 
 import { MapRenderer } from './ui/MapRenderer';
 import { PortSidebar } from './ui/PortSidebar';
-import { DashboardPanel } from './ui/DashboardPanel';
+import { NavSidebar } from './ui/NavSidebar';
+import { SandboxDashboard } from './ui/SandboxDashboard';
+import { IRLDashboard } from './ui/IRLDashboard';
 
 document.querySelector('#app').innerHTML = `
   <div id="map-container" style="width: 100vw; height: 100vh;"></div>
@@ -52,7 +54,10 @@ mapRenderer.renderEdges(allNodes, allEdges);
 const sidebar = new PortSidebar(mapRenderer);
 mapRenderer.sidebar = sidebar;
 
-const dashboard = new DashboardPanel(liveAgent);
+// Initialize Left Nav Dashboard Router
+const sandboxDashboard = new SandboxDashboard();
+const irlDashboard = new IRLDashboard(null, liveAgent);
+const navSidebar = new NavSidebar(sandboxDashboard, irlDashboard, mapRenderer);
 
 console.log('✅ Visualization Engine Hooked.');
 
