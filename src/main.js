@@ -74,6 +74,10 @@ shipmentEngine.telemetryPanel = telemetryPanel;
 console.log('✅ Visualization Engine Hooked.');
 
 window.simulationSpeed = 1.0;
+// Simulation clock: records the real epoch when the sim started.
+// The HTML clock widget reads these to show simulation date/time.
+window._simStartEpoch      = Date.now();
+window.simulationElapsedDays = 0;
 
 // Bind main game loop
 let lastTime = performance.now();
@@ -86,6 +90,9 @@ function gameLoop(currentTime) {
   
   shipmentEngine.update(dt);
   eventEngine.update(dt);
+  
+  // Advance the global simulation clock (dt is already speed-scaled)
+  window.simulationElapsedDays += dt / 30000; // 30000 ms = 1 sim day
   
   requestAnimationFrame(gameLoop);
 }

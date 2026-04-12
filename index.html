@@ -37,24 +37,30 @@
     </div>
 
     <script>
-      (function tickClock() {
+      (function tickSimClock() {
         const dateEl = document.getElementById('clock-date');
         const timeEl = document.getElementById('clock-time');
         const MONTHS = ['January','February','March','April','May','June',
                         'July','August','September','October','November','December'];
         function update() {
-          const now = new Date();
-          const d = now.getDate();
-          const m = MONTHS[now.getMonth()];
-          const y = now.getFullYear();
-          const hh = String(now.getHours()).padStart(2,'0');
-          const mm = String(now.getMinutes()).padStart(2,'0');
-          const ss = String(now.getSeconds()).padStart(2,'0');
-          if (dateEl) dateEl.textContent = `${d} ${m} ${y}`;
-          if (timeEl) timeEl.textContent = `${hh}:${mm}:${ss}`;
+          // Read simulation elapsed days accumulated by the game loop
+          const elapsedDays = window.simulationElapsedDays || 0;
+          // Convert to ms and add to the real epoch when the sim started
+          const startEpoch  = window._simStartEpoch || Date.now();
+          const simMs       = elapsedDays * 24 * 60 * 60 * 1000;
+          const simNow      = new Date(startEpoch + simMs);
+
+          const d  = simNow.getDate();
+          const mo = MONTHS[simNow.getMonth()];
+          const y  = simNow.getFullYear();
+          const hh = String(simNow.getHours()).padStart(2, '0');
+          const mm = String(simNow.getMinutes()).padStart(2, '0');
+
+          if (dateEl) dateEl.textContent = `${d} ${mo} ${y}`;
+          if (timeEl) timeEl.textContent = `${hh}:${mm}`;
         }
         update();
-        setInterval(update, 1000);
+        setInterval(update, 500); // refresh every 0.5s for smooth HH:MM ticks
       })();
     </script>
 
