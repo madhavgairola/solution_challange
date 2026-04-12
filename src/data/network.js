@@ -1,112 +1,162 @@
 export const PORTS = [
-  // India (2): Entry/exit for India
-  { id: 'INNSA', name: 'Mumbai (Nhava Sheva)', region: 'India', lat: 18.95, lng: 72.95 },
-  { id: 'INMAA', name: 'Chennai', region: 'India', lat: 13.10, lng: 80.30 },
-
-  // Middle East (3): Oil + major routing hub
-  { id: 'AEDXA', name: 'Jebel Ali (Dubai)', region: 'Middle East', lat: 25.00, lng: 55.05 },
-  { id: 'SADMM', name: 'Dammam', region: 'Middle East', lat: 26.50, lng: 50.15 },
-  { id: 'OMSAL', name: 'Salalah', region: 'Middle East', lat: 16.95, lng: 54.00 },
-
-  // Suez / Red Sea (2): MOST IMPORTANT CHOKEPOINT
-  { id: 'EGPSD', name: 'Port Said', region: 'Middle East', lat: 31.25, lng: 32.30 },
-  { id: 'SAJED', name: 'Jeddah', region: 'Middle East', lat: 21.48, lng: 39.17 },
-
-  // Southeast Asia (1): Global mega hub
-  { id: 'SGSIN', name: 'Singapore', region: 'Asia', lat: 1.25, lng: 103.80 },
-
-  // Southeast Asia Alt (2): Alternative routing paths
-  { id: 'MYPKG', name: 'Port Klang', region: 'Asia', lat: 3.00, lng: 101.40 },
-  { id: 'IDTPP', name: 'Tanjung Priok', region: 'Asia', lat: -6.10, lng: 106.88 },
-
-  // China (3): Heavy traffic
-  { id: 'CNSHG', name: 'Shanghai', region: 'Asia', lat: 31.20, lng: 121.50 },
-  { id: 'CNSZX', name: 'Shenzhen', region: 'Asia', lat: 22.50, lng: 113.90 },
-  { id: 'CNNGB', name: 'Ningbo-Zhoushan', region: 'Asia', lat: 29.90, lng: 122.00 },
-
-  // East Asia (2): Regional distribution nodes
-  { id: 'KRPUS', name: 'Busan', region: 'Asia', lat: 35.10, lng: 129.00 },
-  { id: 'JPTYO', name: 'Tokyo', region: 'Asia', lat: 35.60, lng: 139.70 },
-
-  // South Asia (1): Important alternate
-  { id: 'LKCMB', name: 'Colombo', region: 'Asia', lat: 6.95, lng: 79.85 },
-
-  // Europe (3): Major European entry points
-  { id: 'NLRTM', name: 'Rotterdam', region: 'Europe', lat: 51.90, lng: 4.10 },
-  { id: 'DEHAM', name: 'Hamburg', region: 'Europe', lat: 53.50, lng: 9.90 },
-  { id: 'BEANR', name: 'Antwerp', region: 'Europe', lat: 51.30, lng: 4.30 },
-
-  // Africa (1): Alternative long-route fallback
-  { id: 'ZADUR', name: 'Durban', region: 'Africa', lat: -29.80, lng: 31.00 },
-
-  // North America (2): Consumption hubs
-  { id: 'USLAX', name: 'Los Angeles', region: 'Americas', lat: 33.75, lng: -118.25 },
-  { id: 'USNYC', name: 'New York / New Jersey', region: 'Americas', lat: 40.68, lng: -74.00 },
-
-  // Panama Region (1): Panama Canal chokepoint
-  { id: 'PABLB', name: 'Balboa (Panama)', region: 'Americas', lat: 8.95, lng: -79.56 }
+  // India
+  { id: 'Mumbai', name: 'Mumbai', region: 'India Connections', lat: 18.95, lng: 72.95 },
+  { id: 'Chennai', name: 'Chennai', region: 'India Connections', lat: 13.10, lng: 80.30 },
+  // Sri Lanka
+  { id: 'Colombo', name: 'Colombo', region: '🇱🇰 Colombo', lat: 6.95, lng: 79.85, ocean_lat: 6.0, ocean_lng: 79.0 },
+  // Middle East
+  { id: 'Dubai', name: 'Dubai (Jebel Ali)', region: 'Middle East', lat: 25.00, lng: 55.05 },
+  { id: 'Dammam', name: 'Dammam', region: 'Middle East', lat: 26.50, lng: 50.15 },
+  { id: 'Salalah', name: 'Salalah', region: 'Middle East', lat: 16.95, lng: 54.00 },
+  // Jeddah
+  { id: 'Jeddah', name: 'Jeddah (Red Sea)', region: '🇸🇦 Jeddah (Red Sea)', lat: 21.48, lng: 39.17 },
+  // Port Said
+  { id: 'Port Said', name: 'Port Said (Suez chokepoint)', region: '🇪🇬 Port Said (Suez chokepoint)', lat: 31.25, lng: 32.30 },
+  // Southeast Asia
+  { id: 'Singapore', name: 'Singapore', region: 'Southeast Asia', lat: 1.25, lng: 103.80 },
+  { id: 'Port Klang', name: 'Port Klang', region: 'Southeast Asia', lat: 3.00, lng: 101.40 },
+  { id: 'Tanjung Priok', name: 'Tanjung Priok', region: 'Southeast Asia', lat: -6.10, lng: 106.88 },
+  // China
+  { id: 'Shanghai', name: 'Shanghai', region: 'China', lat: 31.20, lng: 121.50 },
+  { id: 'Shenzhen', name: 'Shenzhen', region: 'China', lat: 22.50, lng: 113.90 },
+  { id: 'Ningbo', name: 'Ningbo', region: 'China', lat: 29.90, lng: 122.00 },
+  // East Asia
+  { id: 'Busan', name: 'Busan', region: 'East Asia', lat: 35.10, lng: 129.00 },
+  { id: 'Tokyo', name: 'Tokyo', region: 'East Asia', lat: 35.60, lng: 139.70 },
+  // Europe
+  { id: 'Rotterdam', name: 'Rotterdam', region: 'Europe', lat: 51.90, lng: 4.10 },
+  { id: 'Antwerp', name: 'Antwerp', region: 'Europe', lat: 51.30, lng: 4.30 },
+  { id: 'Hamburg', name: 'Hamburg', region: 'Europe', lat: 53.50, lng: 9.90 },
+  // Africa
+  { id: 'Durban', name: 'Durban', region: 'Africa', lat: -29.80, lng: 31.00 },
+  // North America
+  { id: 'Los Angeles', name: 'Los Angeles', region: 'North America', lat: 33.75, lng: -118.25 },
+  { id: 'New York', name: 'New York', region: 'North America', lat: 40.68, lng: -74.00 },
+  // Panama
+  { id: 'Balboa', name: 'Balboa (Panama)', region: 'Panama (Balboa)', lat: 8.95, lng: -79.56 }
 ];
 
-// Helper wrapper to enforce directional pairings
-const createBiRoute = (s, d, baseTime, baseCost, severity=1) => [
-  { source: s, destination: d, baseTime, riskMultiplier: severity, costBase: baseCost },
-  { source: d, destination: s, baseTime, riskMultiplier: severity, costBase: baseCost }
-];
+export const PORT_GRAPH = {
+  "Mumbai": [
+    { to: "Dubai", time: 4, cost: 100, risk: 1.0 },
+    { to: "Colombo", time: 2, cost: 60, risk: 1.0 },
+    { to: "Durban", time: 12, cost: 200, risk: 1.0 }
+  ],
+  "Chennai": [
+    { to: "Colombo", time: 1.5, cost: 50, risk: 1.0 },
+    { to: "Singapore", time: 6, cost: 150, risk: 1.0 }
+  ],
+  "Colombo": [
+    { to: "Mumbai", time: 2, cost: 60, risk: 1.0 },
+    { to: "Chennai", time: 1.5, cost: 50, risk: 1.0 },
+    { to: "Singapore", time: 5, cost: 120, risk: 1.0 }
+  ],
+  "Dubai": [
+    { to: "Mumbai", time: 4, cost: 100, risk: 1.0 },
+    { to: "Jeddah", time: 5, cost: 130, risk: 1.2 },
+    { to: "Singapore", time: 8, cost: 200, risk: 1.0 },
+    { to: "Dammam", time: 2, cost: 50, risk: 1.0 }
+  ],
+  "Dammam": [
+    { to: "Dubai", time: 2, cost: 50, risk: 1.0 },
+    { to: "Jeddah", time: 4, cost: 120, risk: 1.2 }
+  ],
+  "Salalah": [
+    { to: "Jeddah", time: 3, cost: 90, risk: 1.5 },
+    { to: "Mumbai", time: 5, cost: 120, risk: 1.0 }
+  ],
+  "Jeddah": [
+    { to: "Dubai", time: 5, cost: 130, risk: 1.2 },
+    { to: "Port Said", time: 4, cost: 110, risk: 2.0 },
+    { to: "Salalah", time: 3, cost: 90, risk: 1.5 }
+  ],
+  "Port Said": [
+    { to: "Jeddah", time: 4, cost: 110, risk: 2.0 },
+    { to: "Rotterdam", time: 10, cost: 300, risk: 1.0 },
+    { to: "Antwerp", time: 11, cost: 320, risk: 1.0 },
+    { to: "Hamburg", time: 12, cost: 350, risk: 1.0 }
+  ],
+  "Singapore": [
+    { to: "Chennai", time: 6, cost: 150, risk: 1.0 },
+    { to: "Mumbai", time: 10, cost: 250, risk: 1.0 },
+    { to: "Port Klang", time: 1, cost: 30, risk: 1.0 },
+    { to: "Tanjung Priok", time: 2, cost: 60, risk: 1.0 },
+    { to: "Shanghai", time: 6, cost: 160, risk: 1.2 },
+    { to: "Shenzhen", time: 5, cost: 140, risk: 1.1 }
+  ],
+  "Port Klang": [
+    { to: "Singapore", time: 1, cost: 30, risk: 1.0 },
+    { to: "Tanjung Priok", time: 2, cost: 60, risk: 1.0 }
+  ],
+  "Tanjung Priok": [
+    { to: "Singapore", time: 2, cost: 60, risk: 1.0 },
+    { to: "Port Klang", time: 2, cost: 60, risk: 1.0 }
+  ],
+  "Shanghai": [
+    { to: "Singapore", time: 6, cost: 160, risk: 1.2 },
+    { to: "Busan", time: 2, cost: 60, risk: 1.0 },
+    { to: "Los Angeles", time: 15, cost: 400, risk: 1.5 }
+  ],
+  "Shenzhen": [
+    { to: "Singapore", time: 5, cost: 140, risk: 1.1 },
+    { to: "Busan", time: 3, cost: 90, risk: 1.0 }
+  ],
+  "Ningbo": [
+    { to: "Shanghai", time: 1, cost: 30, risk: 1.0 },
+    { to: "Busan", time: 2.5, cost: 75, risk: 1.0 }
+  ],
+  "Busan": [
+    { to: "Shanghai", time: 2, cost: 60, risk: 1.0 },
+    { to: "Shenzhen", time: 3, cost: 90, risk: 1.0 },
+    { to: "Ningbo", time: 2.5, cost: 75, risk: 1.0 },
+    { to: "Tokyo", time: 1.5, cost: 50, risk: 1.0 }
+  ],
+  "Tokyo": [
+    { to: "Busan", time: 1.5, cost: 50, risk: 1.0 },
+    { to: "Los Angeles", time: 12, cost: 350, risk: 1.3 }
+  ],
+  "Rotterdam": [
+    { to: "Port Said", time: 10, cost: 300, risk: 1.0 },
+    { to: "Antwerp", time: 1, cost: 30, risk: 1.0 },
+    { to: "New York", time: 8, cost: 240, risk: 1.2 }
+  ],
+  "Antwerp": [
+    { to: "Port Said", time: 11, cost: 320, risk: 1.0 },
+    { to: "Rotterdam", time: 1, cost: 30, risk: 1.0 }
+  ],
+  "Hamburg": [
+    { to: "Port Said", time: 12, cost: 350, risk: 1.0 },
+    { to: "Rotterdam", time: 2, cost: 60, risk: 1.0 }
+  ],
+  "Durban": [
+    { to: "Mumbai", time: 12, cost: 200, risk: 1.0 },
+    { to: "Rotterdam", time: 15, cost: 450, risk: 1.2 }
+  ],
+  "Los Angeles": [
+    { to: "Shanghai", time: 15, cost: 400, risk: 1.5 },
+    { to: "Tokyo", time: 12, cost: 350, risk: 1.3 },
+    { to: "Balboa", time: 8, cost: 200, risk: 1.0 }
+  ],
+  "New York": [
+    { to: "Rotterdam", time: 8, cost: 240, risk: 1.2 },
+    { to: "Balboa", time: 6, cost: 180, risk: 1.4 }
+  ],
+  "Balboa": [
+    { to: "Los Angeles", time: 8, cost: 200, risk: 1.0 },
+    { to: "New York", time: 6, cost: 180, risk: 1.4 }
+  ]
+};
 
-export const ROUTES = [
-  // Core Europe Local
-  ...createBiRoute('NLRTM', 'DEHAM', 24, 200, 1),
-  ...createBiRoute('NLRTM', 'BEANR', 12, 100, 1),
-
-  // Europe -> Med -> Suez
-  ...createBiRoute('NLRTM', 'EGPSD', 240, 1800, 1.2), // Atlantic to Med
-  
-  // SUEZ CANAL chokepoint
-  ...createBiRoute('EGPSD', 'SAJED', 48, 600, 2.5), // High risk transit
-  ...createBiRoute('SAJED', 'OMSAL', 96, 800, 2.0),
-
-  // Middle East / Persian Gulf
-  ...createBiRoute('OMSAL', 'AEDXA', 72, 500, 1.5),
-  ...createBiRoute('AEDXA', 'SADMM', 24, 200, 1.2),
-
-  // Alternative: Cape of Good Hope
-  ...createBiRoute('NLRTM', 'ZADUR', 450, 2500, 1.3),
-  ...createBiRoute('ZADUR', 'OMSAL', 200, 1200, 1.4),
-  ...createBiRoute('ZADUR', 'SGSIN', 380, 2100, 1.5),
-
-  // Indian Subcontinent
-  ...createBiRoute('OMSAL', 'INNSA', 72, 600, 1), // Oman to Mumbai
-  ...createBiRoute('INNSA', 'LKCMB', 48, 400, 1), // Mumbai to Colombo
-  ...createBiRoute('LKCMB', 'INMAA', 36, 300, 1), // Colombo to Chennai
-
-  // Asia / Malacca Strait
-  ...createBiRoute('LKCMB', 'SGSIN', 96, 900, 1.3), // The main Indian Ocean crossing
-  ...createBiRoute('LKCMB', 'MYPKG', 90, 850, 1.2), // Alt crossing
-  ...createBiRoute('INMAA', 'SGSIN', 110, 1000, 1.2),
-
-  // SEA Local Hub Network
-  ...createBiRoute('SGSIN', 'MYPKG', 24, 200, 1),
-  ...createBiRoute('SGSIN', 'IDTPP', 48, 300, 1),
-  ...createBiRoute('IDTPP', 'CNSZX', 120, 1000, 1.1), // Direct Indo to China
-
-  // South China Sea
-  ...createBiRoute('SGSIN', 'CNSZX', 96, 800, 1.5), // High traffic SCS
-  ...createBiRoute('MYPKG', 'CNSZX', 110, 900, 1.4), 
-  
-  // China Coast Core
-  ...createBiRoute('CNSZX', 'CNSHG', 48, 400, 1),
-  ...createBiRoute('CNSHG', 'CNNGB', 12, 100, 1),
-  ...createBiRoute('CNSHG', 'KRPUS', 48, 300, 1),
-  ...createBiRoute('CNNGB', 'JPTYO', 60, 450, 1),
-  ...createBiRoute('KRPUS', 'JPTYO', 48, 400, 1),
-
-  // Trans-Pacific
-  ...createBiRoute('CNSHG', 'USLAX', 360, 2200, 1.2),
-  ...createBiRoute('JPTYO', 'USLAX', 280, 1800, 1.1),
-  ...createBiRoute('CNSZX', 'USLAX', 380, 2400, 1.3),
-
-  // Americas / Trans-Atlantic
-  ...createBiRoute('USLAX', 'PABLB', 180, 1200, 1.1),
-  ...createBiRoute('PABLB', 'USNYC', 120, 1000, 1.8), // Panama transit risk
-  ...createBiRoute('USNYC', 'NLRTM', 200, 1600, 1.2)
-];
+export const ROUTES = [];
+for (const [source, targets] of Object.entries(PORT_GRAPH)) {
+  targets.forEach(t => {
+    ROUTES.push({
+      source: source,
+      destination: t.to,
+      baseTime: t.time, // Core unit is now "days" instead of hours
+      riskMultiplier: t.risk || 1,
+      costBase: t.cost || 100,
+      days: t.time
+    });
+  });
+}

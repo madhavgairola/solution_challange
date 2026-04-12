@@ -5,6 +5,7 @@ import { EventEngine } from './engine/EventEngine';
 import { PORTS, ROUTES } from './data/network';
 
 import { MapRenderer } from './ui/MapRenderer';
+import { PortSidebar } from './ui/PortSidebar';
 import { EventPanel } from './ui/EventPanel';
 import { RoutingPanel } from './ui/RoutingPanel';
 
@@ -30,6 +31,9 @@ const allEdges = supplyChainGraph.getAllEdges();
 const mapRenderer = new MapRenderer('map-container');
 mapRenderer.renderNodes(allNodes);
 mapRenderer.renderEdges(allNodes, allEdges);
+
+const sidebar = new PortSidebar(mapRenderer);
+mapRenderer.sidebar = sidebar;
 
 console.log('✅ Visualization Engine Hooked.');
 

@@ -17,11 +17,18 @@ export class MapRenderer {
 
     this.nodeLayers = new Map();
     this.edgeLayers = new Map();
+    this.activePortId = null;
 
     // Dynamically scale pathway line thicknesses and node sizes with map zooming to simulate true physical geographic size
     this.map.on('zoom', () => {
       this.updateVisualScales();
     });
+  }
+
+  setActivePort(portId, targetDestId = null) {
+    this.activePortId = portId;
+    this.activeDestId = targetDestId;
+    this.updateVisualScales();
   }
 
   updateVisualScales() {
@@ -32,16 +39,49 @@ export class MapRenderer {
     const dynamicRadius = Math.max(2.0, zoom * 1.2);
 
     if (this.edgeLayers) {
-      this.edgeLayers.forEach(layer => {
-        if (layer.setStyle) {
-          layer.setStyle({ weight: dynamicWeight });
+      this.edgeLayers.forEach((layer, pathId) => {
+        if (!layer.setStyle) return;
+
+        if (this.activePortId) {
+          let isHighlighted = false;
+          if (this.activeDestId) {
+            if (pathId === `${this.activePortId}-${this.activeDestId}` || pathId === `${this.activeDestId}-${this.activePortId}`) {
+              isHighlighted = true;
+            }
+          } else {
+            if (pathId.startsWith(this.activePortId + '-') || pathId.endsWith('-' + this.activePortId)) {
+              isHighlighted = true;
+            }
+          }
+
+          if (isHighlighted) {
+            layer.setStyle({ color: '#3ecf8e', opacity: 1.0, weight: dynamicWeight * 1.5 });
+            if (layer.bringToFront) layer.bringToFront();
+          } else {
+            layer.setStyle({ color: '#cbd5e1', opacity: 0.15, weight: dynamicWeight * 0.8 });
+          }
+        } else {
+          layer.setStyle({ color: '#cbd5e1', opacity: 0.5, weight: dynamicWeight });
         }
       });
     }
 
     if (this.nodeLayers) {
-      this.nodeLayers.forEach(marker => {
-        if (marker.setRadius) {
+      this.nodeLayers.forEach((marker, id) => {
+        if (!marker.setRadius) return;
+
+        if (this.activePortId) {
+          const isActiveNode = id === this.activePortId || (this.activeDestId && id === this.activeDestId);
+          if (isActiveNode) {
+            marker.setStyle({ fillColor: '#3ecf8e', color: '#10b981', weight: 2, fillOpacity: 1.0 });
+            marker.setRadius(dynamicRadius * 2);
+            marker.bringToFront();
+          } else {
+            marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
+            marker.setRadius(dynamicRadius);
+          }
+        } else {
+          marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
           marker.setRadius(dynamicRadius);
         }
       });
@@ -69,6 +109,12 @@ export class MapRenderer {
         marker.bindTooltip(`<b>${node.name}</b><br/>Region: ${node.region}`, {
           direction: 'top',
           offset: [0, -10]
+        });
+
+        marker.on('click', () => {
+          if (this.sidebar) {
+            this.sidebar.showPortDetails(node.id);
+          }
         });
 
         this.nodeLayers.set(node.id, marker);
@@ -120,8 +166,12 @@ export class MapRenderer {
 
         const currentZoomWeight = Math.max(1.0, this.map.getZoom() * 0.7);
 
+        // Only style when newly drawn, let updateVisualScales handle the rest immediately after initialization
+        const currentOpacity = this.activePortId ? (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId) ? 1.0 : 0.15) : 0.5;
+        const currentColor = this.activePortId && (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId)) ? '#3ecf8e' : '#cbd5e1';
+
         const layer = L.geoJSON(route, {
-          style: { color: '#cbd5e1', weight: currentZoomWeight, opacity: 0.5, dashArray: '4, 4' } // Whitish-grey
+          style: { color: currentColor, weight: currentZoomWeight, opacity: currentOpacity, dashArray: '4, 4' } // Whitish-grey
         }).addTo(this.map);
         this.edgeLayers.set(pathId1, layer);
 
@@ -141,9 +191,12 @@ export class MapRenderer {
         // Faint visual geometric connector approximating shipping curvature 
         const currentZoomWeight = Math.max(1.0, this.map.getZoom() * 0.7);
         const latlngs = this.generateOceanArc(sLat, sLng, dLat, dLng);
+        const currentOpacity = this.activePortId ? (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId) ? 1.0 : 0.15) : 0.5;
+        const currentColor = this.activePortId && (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId)) ? '#3ecf8e' : '#cbd5e1';
+
         const fallbackLine = L.polyline(latlngs, {
-          color: '#cbd5e1', // Whitish-grey
-          weight: currentZoomWeight, opacity: 0.5, dashArray: '2, 4'
+          color: currentColor, // Whitish-grey
+          weight: currentZoomWeight, opacity: currentOpacity, dashArray: '2, 4'
         }).addTo(this.map);
         this.edgeLayers.set(pathId1, fallbackLine);
       }
