@@ -29,36 +29,48 @@ export class NavSidebar {
 
   render() {
     this.sidebar.innerHTML = `
-      <div class="nav-header">
-        <h2>Control Modules</h2>
-        <span class="nav-desc">Select Operational Environment</span>
-      </div>
-      <div class="nav-links">
-        <div class="nav-item" data-target="sandbox">
-          <span>🧪 Simulation Sandbox</span>
+      <div class="nav-links" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="nav-item" data-target="sandbox" title="Simulation Sandbox">
+          <span style="font-size: 20px;">⚙️</span>
         </div>
-        <div class="nav-item" data-target="irl">
-          <span>🌍 Real-World Feed</span>
+        <div class="nav-item" data-target="irl" title="Real-World Feed">
+          <span style="font-size: 20px;">🌍</span>
         </div>
-        <div class="nav-item" data-target="schedule">
-          <span>🗓️ Schedule Board</span>
+        <div class="nav-item" data-target="schedule" title="Schedule Board">
+          <span style="font-size: 20px;">🗓️</span>
         </div>
-      </div>
-      <div id="dashboard-mount-point" class="dashboard-mount">
-        <!-- Dynamic Dashboard Content Injected Here -->
       </div>
     `;
+
+    // Extract mount point to a separate floating panel
+    this.mountPanel = document.createElement('div');
+    this.mountPanel.className = 'glass-panel';
+    Object.assign(this.mountPanel.style, {
+      position: 'fixed',
+      top: '90px',
+      left: '90px',
+      width: '320px',
+      maxHeight: '80vh',
+      overflowY: 'auto',
+      zIndex: '1500',
+      display: 'none', // Hidden until toggled
+      flexDirection: 'column',
+    });
+    this.mountPanel.innerHTML = `<div id="dashboard-mount-point" class="dashboard-mount"></div>`;
+    document.body.appendChild(this.mountPanel);
   }
 
   bindEvents() {
     this.toggleBtn.addEventListener('click', () => {
       this.expanded = !this.expanded;
       if (this.expanded) {
-        this.sidebar.classList.add('open');
-        this.toggleBtn.classList.add('open');
+        this.mountPanel.style.display = 'flex';
+        this.toggleBtn.style.background = 'var(--accent-soft)';
+        this.toggleBtn.style.color = 'var(--accent)';
       } else {
-        this.sidebar.classList.remove('open');
-        this.toggleBtn.classList.remove('open');
+        this.mountPanel.style.display = 'none';
+        this.toggleBtn.style.background = 'var(--bg-glass)';
+        this.toggleBtn.style.color = 'var(--text-primary)';
       }
     });
 
@@ -88,7 +100,7 @@ export class NavSidebar {
     }
 
     // 3. Mount targeted component
-    const mountPoint = this.sidebar.querySelector('#dashboard-mount-point');
+    const mountPoint = this.mountPanel.querySelector('#dashboard-mount-point');
     if (viewId === 'sandbox') {
       this.currentView = this.sandboxView;
       this.sandboxView.container = mountPoint;

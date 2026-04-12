@@ -15,31 +15,15 @@ export class KPIBar {
   }
 
   _build() {
-    this.el = document.createElement('div');
-    this.el.id = 'kpi-bar';
-    Object.assign(this.el.style, {
-      position:       'fixed',
-      top:            '58px', // just under the clock
-      left:           '50%',
-      transform:      'translateX(-50%)',
-      zIndex:         '2000',
-      background:     'rgba(15, 23, 42, 0.85)',
-      backdropFilter: 'blur(12px)',
-      border:         '1px solid rgba(255,255,255,0.08)',
-      borderRadius:   '8px',
-      padding:        '6px 16px',
-      display:        'flex',
-      alignItems:     'center',
-      gap:            '20px',
-      fontFamily:     "'Inter', Roboto, sans-serif",
-      pointerEvents:  'none',
-      boxShadow:      '0 4px 16px rgba(0,0,0,0.4)',
-    });
-    document.body.appendChild(this.el);
+    this.el = document.getElementById('kpi-mount');
+    if (!this.el) return;
+    this.el.style.display = 'flex';
+    this.el.style.gap = '8px';
     this._refresh();
   }
 
   _refresh() {
+    if (!this.el) return;
     const activeShips = window.simulation?.shipments?.shipments?.size || 0;
     const stats       = this.engine?.stats || {};
     
@@ -48,28 +32,44 @@ export class KPIBar {
     const avoided       = stats.blockagesDetected > 0 ? stats.blockagesDetected : 0;
     const daysSaved     = stats.totalDaysSaved || 0;
 
+    const basePill = `
+      class="glass-panel" 
+      style="
+        padding: 6px 14px; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        border-radius: 999px;
+      "
+    `;
+
     this.el.innerHTML = `
-      <div style="text-align:center;">
-        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Active Agents</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;"><span style="color:#38bdf8;margin-right:4px;">🚢</span>${activeShips}</div>
+      <div ${basePill}>
+        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Active</span>
+        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--info); margin-right:4px;">🚢</span>${activeShips}</span>
       </div>
-      <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);"></div>
       
-      <div style="text-align:center;">
-        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Disruptions Handled</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;"><span style="color:#f43f5e;margin-right:4px;">🚨</span>${avoided}</div>
+      <div ${basePill}>
+        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Handled</span>
+        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--danger); margin-right:4px;">🚨</span>${avoided}</span>
       </div>
-      <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);"></div>
       
-      <div style="text-align:center;">
-        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Autonomous Reroutes</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;"><span style="color:#3ecf8e;margin-right:4px;">🔁</span>${countReroutes}</div>
+      <div ${basePill}>
+        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Reroutes</span>
+        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--accent); margin-right:4px;">🔁</span>${countReroutes}</span>
       </div>
-      <div style="width:1px;height:24px;background:rgba(255,255,255,0.1);"></div>
       
-      <div style="text-align:center;">
-        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;">Total Delay Saved</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;"><span style="color:#fbbf24;margin-right:4px;">⏱️</span>${daysSaved.toFixed(1)} Days</div>
+      <div class="glass-panel" style="
+        padding: 6px 14px; 
+        display: flex; 
+        align-items: center; 
+        gap: 8px; 
+        border-radius: 999px;
+        background: var(--accent-soft);
+        border: 1px solid var(--accent-glow);
+      ">
+        <span style="font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Delay Saved</span>
+        <span style="font-size:13px; color:var(--text-primary); font-weight:600;">${daysSaved.toFixed(1)}d</span>
       </div>
     `;
   }

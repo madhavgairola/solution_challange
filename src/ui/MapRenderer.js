@@ -292,15 +292,17 @@ export class MapRenderer {
 
     // Port markers along the path
     const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    // Port markers along the path
     ship.pathNodes.forEach((nodeId, idx) => {
       const node = graph?.getNode(nodeId);
       if (!node || !node.lat) return;
       const isOrigin = idx === 0;
       const isDest   = idx === ship.pathNodes.length - 1;
-      const color    = isOrigin ? '#a855f7' : isDest ? '#f43f5e' : '#fbbf24';
-      const r        = isOrigin || isDest ? 7 : 5;
+      const color    = isOrigin ? '#3ecf8e' : isDest ? '#ff5d5d' : '#f5a524'; // Supabase colors
+      const r        = isOrigin || isDest ? 6 : 4;
       const dot = L.circleMarker([node.lat, node.lng], {
-        radius: r, color, fillColor: color, fillOpacity: 0.9, weight: 2
+        radius: r, color, fillColor: color, fillOpacity: 0.9, weight: 1,
+        className: 'glowing-port-marker'
       });
       dot.bindTooltip(`<b>${node.name}</b>`, { direction: 'top', offset: [0, -6] });
       layers.push(dot);
@@ -540,18 +542,18 @@ export class MapRenderer {
 
           const domElement = document.getElementById(`marker-${ship.id}`);
           if (domElement) {
-             let activeColor = '#38bdf8'; // Blue (Moving)
+             let activeColor = '#4ea1ff'; // Info (Moving)
              
-             if      (ship.status === 'port_wait')        activeColor = '#a855f7'; // Purple (Port Wait)
-             else if (ship.status === 'rerouting')        activeColor = '#f43f5e'; // Red
-             else if (ship.status === 'waiting')          activeColor = '#fbbf24'; // Yellow
+             if      (ship.status === 'port_wait')        activeColor = '#4ea1ff'; // Info
+             else if (ship.status === 'rerouting')        activeColor = '#ff5d5d'; // Danger
+             else if (ship.status === 'waiting')          activeColor = '#f5a524'; // Warning
              else if (ship._isEvadingVisually)            activeColor = '#d946ef'; // Magenta
              else if (ship.currentHealthDegradation && ship.currentHealthDegradation > 115)
-                                                          activeColor = '#fb923c'; // Orange
+                                                          activeColor = '#f5a524'; // Warning
 
              if (domElement.style.backgroundColor !== activeColor) {
                domElement.style.backgroundColor = activeColor;
-               domElement.style.boxShadow = `0 0 10px ${activeColor}, 0 0 20px ${activeColor}`;
+               domElement.style.boxShadow = `0 0 10px ${activeColor}, 0 0 20px ${activeColor}88`;
              }
 
              // Pulse the selected ship slightly larger

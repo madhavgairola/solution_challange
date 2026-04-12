@@ -61,62 +61,61 @@ export class AlertPanel {
         : '';
 
       return `
-        <div style="
-          background:rgba(15,23,42,0.95);
-          border:1px solid ${cfg.color}33;
-          border-left:3px solid ${cfg.color};
-          border-radius:7px;
-          padding:8px 10px;
-          margin-bottom:4px;
-        ">
+        <div class="alert-card" style="
+          background: var(--bg-glass);
+          border: 1px solid var(--glass-border);
+          border-left: 3px solid ${cfg.color};
+          border-radius: 8px;
+          padding: 10px 12px;
+          margin-bottom: 6px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        " onmouseover="this.style.transform='translateX(-4px) scale(1.02)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div style="display:flex;align-items:center;gap:5px;">
-              <span style="font-size:13px;">${cfg.icon}</span>
-              <span style="font-size:9px;color:${cfg.color};font-weight:700;letter-spacing:0.5px;">${cfg.label}</span>
-            </div>
             <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:9px;color:#334155;">${simDay}</span>
-              <span data-dismiss="${a.id}" style="color:#475569;cursor:pointer;font-size:13px;line-height:1;padding:0 2px;">×</span>
+              <span style="font-size:14px; text-shadow: 0 0 8px ${cfg.color}55;">${cfg.icon}</span>
+              <span style="font-size:10px;color:${cfg.color};font-weight:700;letter-spacing:0.5px;">${cfg.label}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:10px;color:var(--text-muted);">${simDay}</span>
+              <span data-dismiss="${a.id}" style="color:var(--text-muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;">&times;</span>
             </div>
           </div>
-          <div style="font-size:11px;color:#cbd5e1;margin-top:3px;line-height:1.5;">${a.message}</div>
+          <div style="font-size:12px;color:var(--text-primary);margin-top:4px;line-height:1.5;">${a.message}</div>
           ${extra}${reasonLine}
         </div>`;
     }).join('');
 
     const emptyState = `
-      <div style="text-align:center;color:#334155;font-size:11px;padding:18px 8px;">
-        🛡️ All clear — no active alerts
+      <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:24px 8px;">
+        🛡️ System stable. No active alerts.
       </div>`;
 
     this.el.innerHTML = `
-      <div style="
-        background:rgba(15,23,42,0.82);
-        backdrop-filter:blur(14px);
-        -webkit-backdrop-filter:blur(14px);
-        border:1px solid rgba(255,255,255,0.08);
-        border-radius:10px;
-        overflow:hidden;
-        box-shadow:0 8px 32px rgba(0,0,0,0.5);
+      <div class="glass-panel" style="
+        border-radius: 12px;
+        overflow: hidden;
       ">
         <!-- Header -->
         <div id="alert-toggle" style="
-          padding:8px 12px;
-          display:flex;justify-content:space-between;align-items:center;
-          border-bottom:1px solid rgba(255,255,255,0.06);
-          cursor:pointer;user-select:none;
+          padding: 10px 14px;
+          display: flex; justify-content: space-between; align-items: center;
+          border-bottom: 1px solid var(--glass-border);
+          cursor: pointer; user-select: none;
+          background: rgba(0,0,0,0.1);
         ">
           <div style="display:flex;align-items:center;">
-            <span style="font-size:12px;color:#f1f5f9;font-weight:600;">⚡ Alert Feed</span>
+            <span style="font-size:12px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">⚡ INTELLIGENCE FEED</span>
             ${badge}
           </div>
-          <span style="font-size:10px;color:#475569;">${this.collapsed ? '▼ Show' : '▲ Hide'}</span>
+          <span style="font-size:10px;color:var(--text-muted);">${this.collapsed ? '▼ SHOW' : '▲ HIDE'}</span>
         </div>
 
         ${!this.collapsed ? `
         <div style="
-          max-height:46vh;overflow-y:auto;padding:7px;
-          scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.08) transparent;
+          max-height: 50vh; overflow-y: auto; padding: 10px;
+          scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
         ">
           ${count === 0 ? emptyState : cards}
         </div>` : ''}
