@@ -2,14 +2,13 @@ import './style.css';
 import { Graph } from './engine/Graph';
 import { RoutingEngine } from './engine/RoutingEngine';
 import { EventEngine } from './engine/EventEngine';
+import { LiveIntelligenceAgent } from './engine/LiveIntelligenceAgent';
 import { ShipmentEngine } from './engine/ShipmentEngine';
 import { PORTS, ROUTES } from './data/network';
 
 import { MapRenderer } from './ui/MapRenderer';
 import { PortSidebar } from './ui/PortSidebar';
-import { EventPanel } from './ui/EventPanel';
-import { RoutingPanel } from './ui/RoutingPanel';
-import { SandboxPanel } from './ui/SandboxPanel';
+import { DashboardPanel } from './ui/DashboardPanel';
 
 document.querySelector('#app').innerHTML = `
   <div id="map-container" style="width: 100vw; height: 100vh;"></div>
@@ -24,14 +23,16 @@ const mapRenderer = new MapRenderer('map-container');
 // Initialize Engines
 const routingEngine = new RoutingEngine(supplyChainGraph);
 const eventEngine = new EventEngine(supplyChainGraph, mapRenderer);
+const liveAgent = new LiveIntelligenceAgent(eventEngine);
 const shipmentEngine = new ShipmentEngine(routingEngine, mapRenderer);
 
-// Mount globally for Sandbox Control overrides
+// Mount globally for Simulator overrides
 window.simulation = {
   graph: supplyChainGraph,
   routing: routingEngine,
   events: eventEngine,
-  shipments: shipmentEngine
+  shipments: shipmentEngine,
+  intelligence: liveAgent
 };
 
 // Load Nodes (Ports)
@@ -51,7 +52,7 @@ mapRenderer.renderEdges(allNodes, allEdges);
 const sidebar = new PortSidebar(mapRenderer);
 mapRenderer.sidebar = sidebar;
 
-const sandbox = new SandboxPanel();
+const dashboard = new DashboardPanel(liveAgent);
 
 console.log('✅ Visualization Engine Hooked.');
 

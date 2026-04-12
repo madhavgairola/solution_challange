@@ -153,9 +153,9 @@ for (const [source, targets] of Object.entries(PORT_GRAPH)) {
     ROUTES.push({
       source: source,
       destination: t.to,
-      baseTime: t.time, // Core unit is now "days" instead of hours
-      riskMultiplier: t.risk || 1,
-      costBase: t.cost || 100,
+      base_time: t.time,
+      base_risk: t.risk || 1,
+      base_cost: t.cost || 100,
       days: t.time
     });
   });

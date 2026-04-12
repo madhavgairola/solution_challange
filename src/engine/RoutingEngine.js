@@ -15,9 +15,9 @@ export class RoutingEngine {
     
     // Base features 
     // In a production system, these would fetch the "live" attributes taking into account disruptions
-    const time = edge.base_time;
-    const cost = edge.base_cost;
-    const risk = edge.base_risk;
+    const time = edge.dynamic_time ?? edge.base_time;
+    const cost = edge.dynamic_cost ?? edge.base_cost;
+    const risk = edge.dynamic_risk ?? edge.base_risk;
 
     return (time * w_time) + (cost * w_cost) + (risk * w_risk);
   }
