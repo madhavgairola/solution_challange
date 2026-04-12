@@ -2,6 +2,7 @@ import './style.css';
 import { Graph } from './engine/Graph';
 import { RoutingEngine } from './engine/RoutingEngine';
 import { EventEngine } from './engine/EventEngine';
+import { ScheduleEngine } from './engine/ScheduleEngine';
 import { LiveIntelligenceAgent } from './engine/LiveIntelligenceAgent';
 import { ShipmentEngine } from './engine/ShipmentEngine';
 import { PORTS, ROUTES } from './data/network';
@@ -24,17 +25,19 @@ const supplyChainGraph = new Graph();
 const mapRenderer = new MapRenderer('map-container');
 
 // Initialize Engines
-const routingEngine = new RoutingEngine(supplyChainGraph);
-const eventEngine = new EventEngine(supplyChainGraph, mapRenderer);
-const liveAgent = new LiveIntelligenceAgent(eventEngine);
+const routingEngine  = new RoutingEngine(supplyChainGraph);
+const eventEngine    = new EventEngine(supplyChainGraph, mapRenderer);
+const scheduleEngine = new ScheduleEngine();
+const liveAgent      = new LiveIntelligenceAgent(eventEngine);
 const shipmentEngine = new ShipmentEngine(routingEngine, mapRenderer);
 
 // Mount globally for Simulator overrides
 window.simulation = {
-  graph: supplyChainGraph,
-  routing: routingEngine,
-  events: eventEngine,
-  shipments: shipmentEngine,
+  graph:       supplyChainGraph,
+  routing:     routingEngine,
+  schedule:    scheduleEngine,
+  events:      eventEngine,
+  shipments:   shipmentEngine,
   intelligence: liveAgent
 };
 
@@ -43,6 +46,10 @@ PORTS.forEach(port => supplyChainGraph.addNode(port));
 
 // Load Edges (Routes)
 ROUTES.forEach(route => supplyChainGraph.addEdge(route));
+
+// Build vessel departure schedules AFTER graph is populated
+scheduleEngine.buildSchedules(supplyChainGraph.getAllEdges());
+shipmentEngine.scheduleEngine = scheduleEngine;
 
 const allNodes = supplyChainGraph.getAllNodes();
 const allEdges = supplyChainGraph.getAllEdges();

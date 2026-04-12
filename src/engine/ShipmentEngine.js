@@ -10,12 +10,12 @@ const CARGO_PROFILES = {
 
 export class ShipmentEngine {
   constructor(routingEngine, mapRenderer) {
-    this.routingEngine = routingEngine; // For dynamic rerouting
-    this.mapRenderer = mapRenderer;
-    
-    this.shipments = new Map();
+    this.routingEngine = routingEngine;
+    this.mapRenderer   = mapRenderer;
+    this.shipments     = new Map();
     this.shipmentIdCounter = 0;
-    
+    // Schedule engine injected after construction (set from main.js)
+    this.scheduleEngine = null;
     // 1 simulation day = 30 real seconds at 1x speed
     this.msPerDay = 30000;
   }
@@ -117,21 +117,30 @@ export class ShipmentEngine {
   }
 
   // ───────────────────────────────────────────────────────────────────
-  // Build segment execution chain from edges with planned timing
+  // Build segment execution chain with schedule-aware planned timing
   // ───────────────────────────────────────────────────────────────────
   _buildSegments(edges, dayOffset = 0) {
     let cumDay = dayOffset;
-    return edges.map(edge => {
+    return edges.map((edge, idx) => {
+      // Factor in schedule-based wait for intermediate hops.
+      // Segment 0 departs as soon as the ship spawns (no wait).
+      // Later segments must catch a scheduled vessel.
+      let plannedDeparture = cumDay;
+      if (idx > 0 && this.scheduleEngine) {
+        plannedDeparture = this.scheduleEngine.getNextDeparture(edge.source, edge.destination, cumDay);
+      }
+
       const seg = {
         from:             edge.source,
         to:               edge.destination,
         edge,
-        plannedDeparture: cumDay,
-        plannedArrival:   cumDay + edge.base_time,
+        plannedDeparture,
+        plannedArrival:   plannedDeparture + edge.base_time,
         actualDeparture:  null,
         actualArrival:    null,
-        status:           'scheduled', // scheduled | moving | delayed | completed | missed
+        status:           'scheduled',
         missedConnection: false,
+        scheduleWait:     idx > 0 ? (plannedDeparture - cumDay) : 0,
         delay:            0
       };
       cumDay = seg.plannedArrival;
@@ -145,38 +154,49 @@ export class ShipmentEngine {
   // ───────────────────────────────────────────────────────────────────
   _predictSegmentChain(ship) {
     if (!ship.segments || ship.segments.length === 0) return [];
-    const predictions = [];
-    let predictedDay = ship.totalTimeSpent;
-    const partialProgress = ship.progress;
+    const predictions  = [];
+    let predictedDay   = ship.totalTimeSpent;
+    const partialProg  = ship.progress;
     
     for (let i = ship.currentEdgeIndex; i < ship.segments.length; i++) {
-      const seg = ship.segments[i];
+      const seg           = ship.segments[i];
       const effectiveTime = seg.edge.dynamic_time || seg.edge.base_time;
       
-      // For the current segment, only count the remaining portion
-      const remainingTime = i === ship.currentEdgeIndex
-        ? effectiveTime * (1 - partialProgress)
+      // Remaining portion for current segment; full edge for future ones
+      const remainingTime = (i === ship.currentEdgeIndex)
+        ? effectiveTime * (1 - partialProg)
         : effectiveTime;
-      
-      const predictedArrival = predictedDay + remainingTime;
-      const predictedDelay   = Math.max(0, predictedArrival - seg.plannedArrival);
-      const nextSeg          = ship.segments[i + 1];
-      const willMissConnection = nextSeg && (predictedArrival > nextSeg.plannedDeparture + 0.5);
+
+      // ── Schedule Look-ahead ──────────────────────────────────────
+      // For future segments (not the one currently being traversed),
+      // cargo must catch a scheduled vessel at the intermediate port.
+      let departurePredicted = predictedDay;
+      let scheduleWaitPred   = 0;
+      if (i > ship.currentEdgeIndex && this.scheduleEngine) {
+        departurePredicted = this.scheduleEngine.getNextDeparture(seg.from, seg.to, predictedDay);
+        scheduleWaitPred   = Math.max(0, departurePredicted - predictedDay);
+      }
+
+      const predictedArrival    = departurePredicted + remainingTime;
+      const predictedDelay      = Math.max(0, predictedArrival - seg.plannedArrival);
+      const nextSeg             = ship.segments[i + 1];
+      const willMissConnection  = nextSeg && (predictedArrival > nextSeg.plannedDeparture + 0.5);
 
       predictions.push({
         from: seg.from, to: seg.to,
         plannedArrival: seg.plannedArrival,
         predictedArrival,
         predictedDelay,
+        scheduleWait: scheduleWaitPred,
         willMissConnection: !!willMissConnection
       });
 
       predictedDay = predictedArrival;
     }
 
-    ship.segmentPredictions   = predictions;
-    ship.totalPredictedDelay  = predictions.length > 0 ? predictions[predictions.length - 1].predictedDelay : 0;
-    ship._willMissConnection  = predictions.some(p => p.willMissConnection);
+    ship.segmentPredictions  = predictions;
+    ship.totalPredictedDelay = predictions.length > 0 ? predictions[predictions.length - 1].predictedDelay : 0;
+    ship._willMissConnection = predictions.some(p => p.willMissConnection);
     return predictions;
   }
 
@@ -184,49 +204,71 @@ export class ShipmentEngine {
     const daysPassed = dt / this.msPerDay;
 
     this.shipments.forEach(ship => {
+      // Skip completed ships entirely
+      if (ship.status === 'completed') return;
+
+      // ── Universal time accumulation ──────────────────────────────────
+      // ALL active ships (moving, waiting, port_wait) accumulate sim time.
+      ship.totalTimeSpent += daysPassed;
+
+      // ── PORT WAIT: ship is at an intermediate port awaiting scheduled vessel ──
+      if (ship.status === 'port_wait') {
+        ship.waitDaysRemaining = Math.max(0, ship.scheduledDeparture - ship.totalTimeSpent);
+        if (ship.totalTimeSpent >= ship.scheduledDeparture) {
+          // Board the vessel — resume movement
+          console.log(`[SCHEDULE] ${ship.cargoEmoji||'🚢'} ${ship.id} ⚓→⛵ boarding vessel at ${ship.currentNode} (Day ${ship.totalTimeSpent.toFixed(2)})`);
+          // Mark the segment as now moving from its ACTUAL departure time
+          const boardSeg = ship.segments ? ship.segments[ship.currentEdgeIndex] : null;
+          if (boardSeg) {
+            boardSeg.actualDeparture = ship.totalTimeSpent;
+            boardSeg.status = 'moving';
+          }
+          ship.status        = 'moving';
+          ship.waitingAt     = null;
+          ship.waitingReason = null;
+          ship.waitDaysRemaining = 0;
+          // Fall through to moving logic below
+        } else {
+          return; // Still waiting at port
+        }
+      }
+
+      // ── Only moving ships do physics ──────────────────────────────────
       if (ship.status !== 'moving') return;
 
       const edge = ship.currentEdge;
       
-      // FREEZE FIX: Guard against edges missing geometry (bidirectional sibling not yet rendered)
-      // Geometry is now proactively copied in renderEdges, but keep this as a safety net.
+      // FREEZE FIX
       if (!edge || !edge.geometry || edge.geometry.length === 0) {
-        // Don't silently freeze — trigger a safe reroute attempt after a short delay
         if (Date.now() - ship.lastRerouteTime > 3000) {
-          console.warn(`[FREEZE GUARD] Shipment ${ship.id} has null geometry on edge ${edge?.source}-${edge?.destination}. Triggering safe reroute.`);
+          console.warn(`[FREEZE GUARD] ${ship.id} null geometry on ${edge?.source}-${edge?.destination}. Rerouting.`);
           ship.status = 'rerouting';
           this._handleReroute(ship);
         }
         return;
       }
 
-      // Disruption Detection Check:
-      // If the upcoming edge has been completely blocked by EventEngine (cost > 900)
+      // Blockade detection
       if ((edge.dynamic_time ?? edge.base_time) >= 900) {
-         console.warn(`Shipment ${ship.id} violently halted by blockade on edge ${edge.source}-${edge.destination}`);
-         if (Date.now() - ship.lastRerouteTime > 3000) {
-            ship.status = 'rerouting';
-            this._handleReroute(ship);
-         } else {
-            ship.status = 'waiting'; // Stutter protection
-         }
-         return;
+        console.warn(`${ship.id} halted by blockade on ${edge.source}-${edge.destination}`);
+        if (Date.now() - ship.lastRerouteTime > 3000) {
+          ship.status = 'rerouting';
+          this._handleReroute(ship);
+        } else {
+          ship.status = 'waiting';
+        }
+        return;
       }
 
       const currentDurationDays = edge.dynamic_time;
       let progressDelta = daysPassed / currentDurationDays;
-      
-      // Evasion time penalty: ship is travelling a longer arc around the anomaly.
-      // 0.4x multiplier = ship takes 2.5x longer to complete the edge while evading.
-      // This correctly models the extra nautical distance of the detour arc.
-      if (ship._isEvadingVisually) {
-         progressDelta *= 0.4; 
-      }
+      if (ship._isEvadingVisually) progressDelta *= 0.4;
       
       ship.progress += progressDelta;
+      ship.totalDistanceTravelled += daysPassed * 24 * 46;
 
       if (ship.progress >= 1.0) {
-        // ── Segment completion: record actual arrival, propagate delay ──
+        // ── Segment completion ──────────────────────────────────────────
         const completedSeg = ship.segments ? ship.segments[ship.currentEdgeIndex] : null;
         if (completedSeg && completedSeg.status === 'moving') {
           completedSeg.actualArrival = ship.totalTimeSpent;
@@ -237,46 +279,73 @@ export class ShipmentEngine {
         ship.currentEdgeIndex++;
         
         if (ship.currentEdgeIndex >= ship.pathEdges.length) {
+          // ── Journey complete ──────────────────────────────────────────
           ship.status            = 'completed';
           ship.actualArrivalTime = Date.now();
           ship.delay             = ship.totalTimeSpent - ((ship.expectedArrivalTime - ship.spawnTime) / this.msPerDay);
           ship.progress          = 1.0;
         } else {
           ship.currentEdge = ship.pathEdges[ship.currentEdgeIndex];
-          
-          // ── Delay propagation: next segment departs when this one actually arrives ──
-          const nextSeg = ship.segments ? ship.segments[ship.currentEdgeIndex] : null;
-          if (nextSeg) {
+          const nextSeg    = ship.segments ? ship.segments[ship.currentEdgeIndex] : null;
+
+          if (nextSeg && this.scheduleEngine) {
+            // ── SCHEDULE LOOKUP: find next vessel for this leg ────────────
+            const arrivalDay   = ship.totalTimeSpent;
+            const nextDep      = this.scheduleEngine.getNextDeparture(nextSeg.from, nextSeg.to, arrivalDay);
+            const waitDays     = nextDep - arrivalDay;
+
+            nextSeg.actualDeparture = nextDep;
+
+            // Missed connection: arrived later than the planned vessel
+            if (arrivalDay > nextSeg.plannedDeparture + 0.1) {
+              nextSeg.missedConnection = true;
+              console.warn(`[MISSED CONNECTION] ${ship.cargoEmoji||''} ${ship.id}: arrived Day ${arrivalDay.toFixed(2)} at ${completedSeg?.to}, planned departure was Day ${nextSeg.plannedDeparture.toFixed(2)} (+${(arrivalDay-nextSeg.plannedDeparture).toFixed(2)}d late). Waiting ${waitDays.toFixed(2)}d for next vessel.`);
+            }
+
+            if (waitDays > 0.05) {
+              // Ship must wait at this port for the next scheduled vessel
+              nextSeg.status     = 'port_wait';
+              ship.status        = 'port_wait';
+              ship.scheduledDeparture = nextDep;
+              ship.waitDaysRemaining  = waitDays;
+              ship.waitingAt     = nextSeg.from;
+              ship.waitingReason = `Next ${nextSeg.from}→${nextSeg.to} vessel in ${waitDays.toFixed(1)}d`;
+              ship.progress      = 0;
+
+              // Position the ship at the port it just arrived at
+              this._updateShipmentPosition(ship);
+              return;
+            } else {
+              // Next vessel departs soon — start immediately
+              nextSeg.status          = 'moving';
+              nextSeg.actualDeparture = arrivalDay;
+            }
+          } else if (nextSeg) {
+            // No schedule engine — legacy immediate departure
             nextSeg.actualDeparture = ship.totalTimeSpent;
             nextSeg.status          = 'moving';
             if (ship.totalTimeSpent > nextSeg.plannedDeparture + 0.1) {
               nextSeg.missedConnection = true;
-              console.warn(`[MISSED CONNECTION] ${ship.cargoEmoji || ''} ${ship.id}: late at ${completedSeg?.to}. Schedule was Day ${nextSeg.plannedDeparture.toFixed(1)}, actual Day ${ship.totalTimeSpent.toFixed(1)} (+${(ship.totalTimeSpent - nextSeg.plannedDeparture).toFixed(1)}d delay)`);
             }
           }
 
-          // Carry over excess progress so we don't drop time frames
+          // Carry over excess progress
           const excessDays = (ship.progress - 1.0) * currentDurationDays;
-          ship.progress = excessDays / ship.currentEdge.dynamic_time;
+          ship.progress    = excessDays / ship.currentEdge.dynamic_time;
         }
       }
 
-      // ── Accumulate agent metrics ────────────────────────────────────
-      ship.totalTimeSpent += daysPassed;
-      ship.totalDistanceTravelled += daysPassed * 24 * 46; // ~46 km/hr ship speed (25 knots)
-      
-      // ── Update position state ───────────────────────────────────────
+      // ── Update position state ──────────────────────────────────────
       if (ship.currentEdgeIndex < ship.pathEdges.length) {
         const ce = ship.pathEdges[ship.currentEdgeIndex];
         ship.currentNode = ce.source;
-        ship.nextNode = ce.destination;
+        ship.nextNode    = ce.destination;
       }
 
       this._updateShipmentPosition(ship);
       this._applyGeometricEvasion(ship);
     });
     
-    // Transmit to visualization layer — filter completed ships before telemetry
     this.mapRenderer.renderShipments(Array.from(this.shipments.values()));
     if (this.telemetryPanel) {
        const activeShips = Array.from(this.shipments.values()).filter(s => s.status !== 'completed');
@@ -352,10 +421,9 @@ export class ShipmentEngine {
   evaluateGlobalDisruptions() {
     // Step 9 + 4 Upgrades: Push-based validation running intelligent Health Score tolerances
     this.shipments.forEach(ship => {
-      if (ship.status !== 'moving' && ship.status !== 'waiting') return;
+      if (ship.status !== 'moving' && ship.status !== 'waiting' && ship.status !== 'port_wait') return;
       
-      // Enforce temporal cooldown window to stabilize reroute mapping storms (e.g., 5 seconds)
-      // IMPORTANT: Skip cooldown for WAITING ships — they must be allowed to recover immediately when a blockade clears!
+      // Enforce temporal cooldown window — but NOT for waiting/port_wait ships
       if (ship.status === 'moving' && Date.now() - ship.lastRerouteTime < 5000) return;
       
       let isPathBlocked = false;
@@ -517,6 +585,11 @@ export class ShipmentEngine {
      ship.lastRerouteTime     = Date.now();
      ship._isEvadingVisually  = false;
      ship.status              = 'moving';
+     // Clear port_wait state if we reroute while docked
+     ship.scheduledDeparture  = null;
+     ship.waitDaysRemaining   = 0;
+     ship.waitingAt           = null;
+     ship.waitingReason       = null;
 
      // Rebuild the segment execution chain from current simulation time
      const rebuiltSegs = this._buildSegments(routingResult.edges, ship.totalTimeSpent);

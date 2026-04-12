@@ -56,6 +56,9 @@ export class TelemetryPanel {
           if (seg.missedConnection) { icon = '⚠️'; color = '#f43f5e'; delayText = `+${d.toFixed(1)}d`; }
           else if (d > 0.1)         { icon = '🕒'; color = '#fbbf24'; delayText = `+${d.toFixed(1)}d`; }
           else                      { icon = '✅'; color = '#10b981'; }
+        } else if (seg.status === 'port_wait') {
+          icon = '⛳'; color = '#a855f7';
+          if (pred && pred.scheduleWait > 0.05) delayText = `${pred.scheduleWait.toFixed(1)}d`;
         } else if (isCurrent) {
           icon = '🚢'; color = '#38bdf8';
           if (pred && pred.predictedDelay > 0.1) delayText = `~+${pred.predictedDelay.toFixed(1)}d`;
@@ -88,9 +91,10 @@ export class TelemetryPanel {
         
         if (ship._isEvadingVisually && ship.status === 'moving') {
              statusColor = '#d946ef'; displayStatus = 'EVADING';
-        } else if (ship.status === 'rerouting') { statusColor = '#f43f5e';
-        } else if (ship.status === 'waiting')   { statusColor = '#fbbf24';
-        } else if (ship.status === 'completed') { statusColor = '#10b981'; }
+        } else if (ship.status === 'rerouting')  { statusColor = '#f43f5e';
+        } else if (ship.status === 'waiting')    { statusColor = '#fbbf24';
+        } else if (ship.status === 'port_wait')  { statusColor = '#a855f7'; displayStatus = 'PORT WAIT';
+        } else if (ship.status === 'completed')  { statusColor = '#10b981'; }
 
         const originName = PORTS.find(p => p.id === ship.origin)?.name || ship.origin;
         const destName   = PORTS.find(p => p.id === ship.destination)?.name || ship.destination;
@@ -105,7 +109,10 @@ export class TelemetryPanel {
         const kmTravelled = ship.totalDistanceTravelled ? `${Math.round(ship.totalDistanceTravelled).toLocaleString()} km` : '—';
         const daysTravelled = ship.totalTimeSpent ? `${ship.totalTimeSpent.toFixed(1)}d` : '—';
         const rerouteInfo = ship.rerouteCount > 0 ? `🔁 ${ship.rerouteCount}` : '—';
-        const waitReason = ship.waitingReason ? `<div class="agent-wait">⏳ ${ship.waitingReason}</div>` : '';
+        const waitReason = ship.waitingReason 
+          ? `<div class="agent-wait">${ship.status === 'port_wait' ? '⛳' : '⏳'} ${ship.waitingReason}${
+            ship.waitDaysRemaining > 0 ? ` — <b style="color:#a855f7">${ship.waitDaysRemaining.toFixed(1)}d</b>` : ''}</div>` 
+          : '';
         const eventInfo = ship.affectedByEvents && ship.affectedByEvents.length > 0
           ? `<div class="agent-events">⚡ Disruptions: ${ship.affectedByEvents.slice(-2).join(', ')}</div>` : '';
 
