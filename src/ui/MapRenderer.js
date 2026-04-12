@@ -378,26 +378,44 @@ export class MapRenderer {
      const activeIds = new Set();
      
      shipments.forEach(ship => {
-        if (ship.status !== 'moving' && ship.status !== 'delayed') return;
+        if (ship.status !== 'moving' && ship.status !== 'delayed' && ship.status !== 'rerouting' && ship.status !== 'waiting') return;
         if (!ship.currentLatLng) return;
 
         activeIds.add(ship.id);
 
-        if (!this.shipmentLayers.has(ship.id)) {
-           const icon = L.divIcon({
-              className: 'custom-ship-icon',
-              html: `<div class="ship-dot" style="background-color: ${ship.status === 'delayed' ? '#fbbf24' : '#38bdf8'}; box-shadow: 0 0 10px ${ship.status === 'delayed' ? '#fbbf24' : '#38bdf8'};"></div>`,
-              iconSize: [12, 12],
-              iconAnchor: [6, 6]
-           });
-           
-           const marker = L.marker(ship.currentLatLng, { icon, zIndexOffset: 1000 }).addTo(this.map);
-           marker.bindTooltip(`<b>Shipment: ${ship.id}</b><br/>To: ${ship.destination}<br/>Status: ${ship.status}`);
-           this.shipmentLayers.set(ship.id, marker);
+        let marker = this.shipmentLayers.get(ship.id);
+        if (!marker) {
+          // Initialize Visual Representation
+          const icon = L.divIcon({
+            className: 'custom-ship-icon',
+            html: `<div class="shipment-marker" id="marker-${ship.id}"></div>`,
+            iconSize: [12, 12]
+          });
+          marker = L.marker(ship.currentLatLng, { icon }).addTo(this.map);
+          this.shipmentLayers.set(ship.id, marker);
         } else {
-           const marker = this.shipmentLayers.get(ship.id);
-           marker.setLatLng(ship.currentLatLng);
-           // Soft update HTML conditionally if status changes... skipped here for perf, can build later
+          // Update frame location smoothly natively tracking geographical state
+          marker.setLatLng(ship.currentLatLng);
+
+          // DOM Inject dynamic visual math telemetry (Semantic Coloring)
+          const domElement = document.getElementById(`marker-${ship.id}`);
+          if (domElement) {
+             let activeColor = '#38bdf8'; // Blue (Normal)
+             
+             if (ship.status === 'rerouting') {
+                activeColor = '#f43f5e'; // Red (Blocked / Evasive)
+             } else if (ship.status === 'waiting') {
+                activeColor = '#fbbf24'; // Yellow (Cooldown)
+             } else if (ship.currentHealthDegradation && ship.currentHealthDegradation > 115) {
+                activeColor = '#fb923c'; // Orange-Yellow (Degraded Health Tolerance)
+             }
+
+             // Only hit the DOM if the state changed to save frame drops
+             if (domElement.style.backgroundColor !== activeColor) {
+               domElement.style.backgroundColor = activeColor;
+               domElement.style.boxShadow = `0 0 10px ${activeColor}, 0 0 20px ${activeColor}`;
+             }
+          }
         }
      });
 

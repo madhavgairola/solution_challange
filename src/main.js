@@ -11,6 +11,7 @@ import { PortSidebar } from './ui/PortSidebar';
 import { NavSidebar } from './ui/NavSidebar';
 import { SandboxDashboard } from './ui/SandboxDashboard';
 import { IRLDashboard } from './ui/IRLDashboard';
+import { TelemetryPanel } from './ui/TelemetryPanel';
 
 document.querySelector('#app').innerHTML = `
   <div id="map-container" style="width: 100vw; height: 100vh;"></div>
@@ -58,6 +59,10 @@ mapRenderer.sidebar = sidebar;
 const sandboxDashboard = new SandboxDashboard();
 const irlDashboard = new IRLDashboard(null, liveAgent);
 const navSidebar = new NavSidebar(sandboxDashboard, irlDashboard, mapRenderer);
+
+// Initialize Global Telemetry Tracker
+const telemetryPanel = new TelemetryPanel();
+shipmentEngine.telemetryPanel = telemetryPanel;
 
 console.log('✅ Visualization Engine Hooked.');
 

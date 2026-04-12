@@ -39,6 +39,7 @@ export class ShipmentEngine {
       progress: 0.0, // 0.0 to 1.0 along currentEdge
       currentLatLng: null,
       
+      currentHealthDegradation: 100, // baseline for UI telemetry 
       lastRerouteTime: 0 // Cooldown protection lock
     };
 
@@ -97,6 +98,9 @@ export class ShipmentEngine {
     
     // Transmit to visualization layer smoothly natively
     this.mapRenderer.renderShipments(Array.from(this.shipments.values()));
+    if (this.telemetryPanel) {
+       this.telemetryPanel.update(Array.from(this.shipments.values()));
+    }
   }
 
   evaluateGlobalDisruptions() {
@@ -124,10 +128,13 @@ export class ShipmentEngine {
          originalScore += this.routingEngine.calculateEdgeScore(defaultParams, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
          newScore += this.routingEngine.calculateEdgeScore(edge, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
       }
+      
+      const volatility = originalScore > 0 ? (newScore / originalScore) * 100 : 100;
+      ship.currentHealthDegradation = volatility;
 
       // If literally impassable, OR if severity degrades map health past 30% volatility threshold
-      if (isPathBlocked || newScore > (originalScore * 1.3)) {
-         console.warn(`[INTELLIGENCE PULSE] Shipment ${ship.id} detected downstream volatility (Blocked: ${isPathBlocked}, Health Degraded: ${((newScore/originalScore)*100).toFixed(0)}%). Executing evasive actions.`);
+      if (isPathBlocked || volatility > 130) {
+         console.warn(`[INTELLIGENCE PULSE] Shipment ${ship.id} detected downstream volatility (Blocked: ${isPathBlocked}, Health Degraded: ${volatility.toFixed(0)}%). Executing evasive actions.`);
          ship.status = 'rerouting';
          this._handleReroute(ship);
       }
@@ -180,6 +187,7 @@ export class ShipmentEngine {
      ship.pathEdges = routingResult.edges;
      ship.currentEdgeIndex = 0;
      ship.currentEdge = routingResult.edges[0];
+     ship.currentHealthDegradation = 100; // Reset telemetry baseline upon successful evasive re-pathing
      
      // Reverse progress to simulate heading back to node?
      // Actually, if it's returning, we simply set progress = 0 logically and visually 'warp' it to the node, 
