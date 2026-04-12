@@ -95,6 +95,29 @@ export class ShipmentEngine {
     this.mapRenderer.renderShipments(Array.from(this.shipments.values()));
   }
 
+  evaluateGlobalDisruptions() {
+    // Step 9: Push-based trigger when EventEngine alters the graph
+    this.shipments.forEach(ship => {
+      if (ship.status !== 'moving') return;
+      
+      let pathValid = true;
+      // Scan all completely remaining edges downstream mathematically
+      for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
+         const edge = ship.pathEdges[i];
+         if (edge.dynamic_time >= 900) {
+            pathValid = false;
+            break;
+         }
+      }
+
+      if (!pathValid) {
+         console.warn(`[EVENT PULSE] Shipment ${ship.id} detected downstream graph blockade! Triggering evasive recomputation.`);
+         ship.status = 'rerouting';
+         this._handleReroute(ship);
+      }
+    });
+  }
+
   _handleReroute(ship) {
      const currentNode = ship.currentEdge.source;
      let targetNode = ship.destination;

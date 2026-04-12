@@ -110,5 +110,10 @@ export class EventEngine {
     if (this.mapRenderer) {
        this.mapRenderer.renderEvents(Array.from(this.activeEvents.values()));
     }
+
+    // Trigger global push notification to all active agents (Step 9)
+    if (window.simulation && window.simulation.shipments) {
+        window.simulation.shipments.evaluateGlobalDisruptions();
+    }
   }
 }
