@@ -10,6 +10,54 @@
   </head>
   <body>
     <div id="app"></div>
+
+    <!-- Live Clock — top center HUD -->
+    <div id="live-clock" style="
+      position: fixed;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2000;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 999px;
+      padding: 6px 22px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'Inter', Roboto, sans-serif;
+      pointer-events: none;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    ">
+      <span style="font-size:13px; color:#94a3b8; letter-spacing:0.3px;" id="clock-date"></span>
+      <span style="width:1px; height:14px; background:rgba(255,255,255,0.12); display:inline-block;"></span>
+      <span style="font-size:15px; font-weight:600; color:#e2e8f0; letter-spacing:1px; font-variant-numeric:tabular-nums;" id="clock-time"></span>
+    </div>
+
+    <script>
+      (function tickClock() {
+        const dateEl = document.getElementById('clock-date');
+        const timeEl = document.getElementById('clock-time');
+        const MONTHS = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+        function update() {
+          const now = new Date();
+          const d = now.getDate();
+          const m = MONTHS[now.getMonth()];
+          const y = now.getFullYear();
+          const hh = String(now.getHours()).padStart(2,'0');
+          const mm = String(now.getMinutes()).padStart(2,'0');
+          const ss = String(now.getSeconds()).padStart(2,'0');
+          if (dateEl) dateEl.textContent = `${d} ${m} ${y}`;
+          if (timeEl) timeEl.textContent = `${hh}:${mm}:${ss}`;
+        }
+        update();
+        setInterval(update, 1000);
+      })();
+    </script>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
