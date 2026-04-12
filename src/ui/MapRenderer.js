@@ -15,16 +15,19 @@ export class MapRenderer {
       maxZoom: 19
     }).addTo(this.map);
 
-    this.nodeLayers = new Map();
-    this.edgeLayers = new Map();
-    this.shipmentLayers = new Map();
-    this.eventLayers = new Map();
-    this.activePortId = null;
+    this.nodeLayers      = new Map();
+    this.edgeLayers      = new Map();
+    this.shipmentLayers  = new Map();
+    this.eventLayers     = new Map();
+    this.activePortId    = null;
+    this.selectedShipId  = null;   // currently clicked ship
+    this.shipRouteLayer  = null;   // Leaflet layer group for ship route highlight
+    this.shipPopup       = null;   // floating info popup
 
-    // Dynamically scale pathway line thicknesses and node sizes with map zooming to simulate true physical geographic size
-    this.map.on('zoom', () => {
-      this.updateVisualScales();
-    });
+    // Click map blank area → deselect ship
+    this.map.on('click', () => this.clearShipRouteHighlight());
+
+    this.map.on('zoom', () => this.updateVisualScales());
   }
 
   setActivePort(portId, targetDestId = null) {
@@ -243,6 +246,106 @@ export class MapRenderer {
     }
   } // deprecated, kept for safety
 
+  // ── Clear highlighted ship route ──────────────────────────────────────────
+  clearShipRouteHighlight() {
+    if (this.shipRouteLayer) {
+      this.map.removeLayer(this.shipRouteLayer);
+      this.shipRouteLayer = null;
+    }
+    if (this.shipPopup) {
+      this.map.closePopup(this.shipPopup);
+      this.shipPopup = null;
+    }
+    // Reset all ship markers to default size
+    this.shipmentLayers.forEach((marker, id) => {
+      const el = document.getElementById(`marker-${id}`);
+      if (el) { el.style.transform = ''; el.style.zIndex = ''; }
+    });
+    this.selectedShipId = null;
+  }
+
+  // ── Draw full route for a clicked ship ───────────────────────────────────
+  showShipRoute(ship) {
+    this.clearShipRouteHighlight();
+    this.selectedShipId = ship.id;
+
+    const layers = [];
+    const segs   = ship.segments || [];
+    const graph  = window.simulation?.graph;
+
+    // Draw each edge geometry
+    ship.pathEdges.forEach((edge, idx) => {
+      if (!edge.geometry || edge.geometry.length === 0) return;
+
+      const isCompleted = segs[idx]?.status === 'completed' || segs[idx]?.status === 'delayed';
+      const isCurrent   = idx === ship.currentEdgeIndex;
+      const color  = isCompleted ? '#10b981' : isCurrent ? '#38bdf8' : '#94a3b8';
+      const dash   = isCompleted ? null : isCurrent ? null : '5, 8';
+      const weight = isCurrent ? 4 : 2.5;
+      const opacity= isCompleted ? 0.5 : 1.0;
+
+      // geometry is [lng,lat] pairs → convert to [lat,lng] for Leaflet
+      const latlngs = edge.geometry.map(c => [c[1], c[0]]);
+      const line = L.polyline(latlngs, { color, weight, opacity, dashArray: dash });
+      layers.push(line);
+    });
+
+    // Port markers along the path
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    ship.pathNodes.forEach((nodeId, idx) => {
+      const node = graph?.getNode(nodeId);
+      if (!node || !node.lat) return;
+      const isOrigin = idx === 0;
+      const isDest   = idx === ship.pathNodes.length - 1;
+      const color    = isOrigin ? '#a855f7' : isDest ? '#f43f5e' : '#fbbf24';
+      const r        = isOrigin || isDest ? 7 : 5;
+      const dot = L.circleMarker([node.lat, node.lng], {
+        radius: r, color, fillColor: color, fillOpacity: 0.9, weight: 2
+      });
+      dot.bindTooltip(`<b>${node.name}</b>`, { direction: 'top', offset: [0, -6] });
+      layers.push(dot);
+    });
+
+    this.shipRouteLayer = L.layerGroup(layers).addTo(this.map);
+    layers.forEach(l => { if (l.bringToFront) l.bringToFront(); });
+
+    // Info popup at ship's current position
+    if (!ship.currentLatLng) return;
+    const cargo   = ship.cargoLabel || 'General';
+    const prio    = '★'.repeat(ship.priority || 3) + '☆'.repeat(5 - (ship.priority || 3));
+    const elapsed = ship.totalTimeSpent?.toFixed(1) || '0.0';
+    const delay   = ship.totalPredictedDelay > 0.1 ? `<span style="color:#f43f5e;">+${ship.totalPredictedDelay.toFixed(1)}d delay</span>` : '<span style="color:#10b981;">on schedule</span>';
+    const statusLabel = ship.status.toUpperCase().replace('_',' ');
+    const rerouteInfo = ship.rerouteCount > 0 ? `🔁 Rerouted ${ship.rerouteCount}×` : '';
+    const waitInfo  = ship.waitDaysRemaining > 0 ? `<br>⛳ Boarding in <b>${ship.waitDaysRemaining.toFixed(1)}d</b>` : '';
+
+    // Build hop chain string
+    const hopChain = ship.pathNodes
+      .map((id, i) => {
+        const n    = graph?.getNode(id);
+        const name = n?.name || id;
+        const seg  = segs[i - 1];
+        const mark = i === 0 ? '🟣' : i === ship.pathNodes.length - 1 ? '🔴' : '🟡';
+        return `${mark} ${name}`;
+      }).join(' → ');
+
+    const popupHtml = `
+      <div style="font-family:'Inter',sans-serif; min-width:220px; padding:2px;">
+        <div style="font-size:16px; margin-bottom:4px;">${ship.cargoEmoji || '🚢'} <b>${cargo}</b> <span style="font-size:11px; color:#fbbf24;">${prio}</span></div>
+        <div style="font-size:11px; color:#475569; margin-bottom:6px;">ID: ${ship.id.split('-').slice(-1)[0]} · ${statusLabel}</div>
+        <div style="font-size:11px; margin-bottom:5px; line-height:1.6;">${hopChain}</div>
+        <hr style="border-color:rgba(0,0,0,0.1); margin:5px 0;">
+        <div style="font-size:11px;">⏱️ <b>${elapsed}d</b> elapsed · ${delay}</div>
+        ${waitInfo ? `<div style="font-size:11px;">${waitInfo}</div>` : ''}
+        ${rerouteInfo ? `<div style="font-size:11px;">${rerouteInfo}</div>` : ''}
+      </div>`;
+
+    this.shipPopup = L.popup({ closeButton: true, maxWidth: 300, className: 'ship-route-popup' })
+      .setLatLng(ship.currentLatLng)
+      .setContent(popupHtml)
+      .openOn(this.map);
+  }
+
   drawCalculatedRoutes(routes, graph) {
     // Clear old route highlight layers
     if (this.routeHighlights) {
@@ -395,50 +498,65 @@ export class MapRenderer {
      });
   }
 
-  // 60-FPS render hook called by ShipmentEngine tightly integrating the exact physical coordinates
+  // 60-FPS render hook called by ShipmentEngine
   renderShipments(shipments) {
      const activeIds = new Set();
      
      shipments.forEach(ship => {
-        if (ship.status !== 'moving' && ship.status !== 'delayed' && ship.status !== 'rerouting' && ship.status !== 'waiting') return;
+        // Include port_wait ships — they sit at their origin port visibly
+        const visible = ['moving','delayed','rerouting','waiting','port_wait'];
+        if (!visible.includes(ship.status)) return;
         if (!ship.currentLatLng) return;
 
         activeIds.add(ship.id);
 
         let marker = this.shipmentLayers.get(ship.id);
         if (!marker) {
-          // Initialize Visual Representation
           const icon = L.divIcon({
             className: 'custom-ship-icon',
             html: `<div class="ship-dot" id="marker-${ship.id}"></div>`,
             iconSize: [12, 12]
           });
-          marker = L.marker(ship.currentLatLng, { icon }).addTo(this.map);
+          marker = L.marker(ship.currentLatLng, { icon, zIndexOffset: 1000 }).addTo(this.map);
+
+          // ── CLICK → show route ───────────────────────────────────────
+          marker.on('click', (e) => {
+            L.DomEvent.stopPropagation(e); // stop map deselect firing
+            if (this.selectedShipId === ship.id) {
+              this.clearShipRouteHighlight();
+            } else {
+              this.showShipRoute(ship);
+            }
+          });
+
           this.shipmentLayers.set(ship.id, marker);
         } else {
-          // Update frame location smoothly natively tracking geographical state
           marker.setLatLng(ship.currentLatLng);
 
-          // DOM Inject dynamic visual math telemetry (Semantic Coloring)
+          // Update route popup position if this ship is selected
+          if (this.selectedShipId === ship.id && this.shipPopup) {
+            this.shipPopup.setLatLng(ship.currentLatLng);
+          }
+
           const domElement = document.getElementById(`marker-${ship.id}`);
           if (domElement) {
-             let activeColor = '#38bdf8'; // Blue (Normal)
+             let activeColor = '#38bdf8'; // Blue (Moving)
              
-             if (ship.status === 'rerouting') {
-                activeColor = '#f43f5e'; // Red (Blocked / Evasive)
-             } else if (ship.status === 'waiting') {
-                activeColor = '#fbbf24'; // Yellow (Cooldown)
-             } else if (ship._isEvadingVisually) {
-                activeColor = '#d946ef'; // Magenta (Ray Evasion Geometry Active)
-             } else if (ship.currentHealthDegradation && ship.currentHealthDegradation > 115) {
-                activeColor = '#fb923c'; // Orange-Yellow (Degraded Health Tolerance)
-             }
+             if      (ship.status === 'port_wait')        activeColor = '#a855f7'; // Purple (Port Wait)
+             else if (ship.status === 'rerouting')        activeColor = '#f43f5e'; // Red
+             else if (ship.status === 'waiting')          activeColor = '#fbbf24'; // Yellow
+             else if (ship._isEvadingVisually)            activeColor = '#d946ef'; // Magenta
+             else if (ship.currentHealthDegradation && ship.currentHealthDegradation > 115)
+                                                          activeColor = '#fb923c'; // Orange
 
-             // Only hit the DOM if the state changed to save frame drops
              if (domElement.style.backgroundColor !== activeColor) {
                domElement.style.backgroundColor = activeColor;
                domElement.style.boxShadow = `0 0 10px ${activeColor}, 0 0 20px ${activeColor}`;
              }
+
+             // Pulse the selected ship slightly larger
+             const isSelected = this.selectedShipId === ship.id;
+             domElement.style.transform = isSelected ? 'scale(1.8)' : '';
           }
         }
      });
@@ -448,6 +566,7 @@ export class MapRenderer {
         if (!activeIds.has(id)) {
            this.map.removeLayer(marker);
            this.shipmentLayers.delete(id);
+           if (this.selectedShipId === id) this.clearShipRouteHighlight();
         }
      }
   }

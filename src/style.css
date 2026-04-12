@@ -930,3 +930,25 @@ h1 {
 .port-wait-pulse {
   animation: portWaitPulse 1.6s ease-in-out infinite;
 }
+
+/* ── Ship Route Popup (Leaflet dark override) ────────────────────────── */
+.ship-route-popup .leaflet-popup-content-wrapper {
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  color: #cbd5e1;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.ship-route-popup .leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.96);
+}
+.ship-route-popup .leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  font-size: 16px !important;
+  top: 8px !important;
+  right: 8px !important;
+}
+.ship-route-popup .leaflet-popup-close-button:hover {
+  color: #f1f5f9 !important;
+}
