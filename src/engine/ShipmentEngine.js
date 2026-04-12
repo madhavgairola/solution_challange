@@ -1,3 +1,13 @@
+// ─────────────────────────────────────────────────────────────────────
+// CARGO PROFILES: drives distinct routing preferences per cargo type
+// ─────────────────────────────────────────────────────────────────────
+const CARGO_PROFILES = {
+  general:      { emoji: '📦', label: 'General Cargo',  preferences: { weightTime: 0.4, weightCost: 0.4, weightRisk: 0.2 }, riskTolerance: 0.6 },
+  perishable:   { emoji: '🥩', label: 'Perishable',     preferences: { weightTime: 0.8, weightCost: 0.1, weightRisk: 0.1 }, riskTolerance: 0.3 },
+  oil:          { emoji: '🛢️', label: 'Oil / Hazmat',   preferences: { weightTime: 0.2, weightCost: 0.3, weightRisk: 0.5 }, riskTolerance: 0.2 },
+  high_priority:{ emoji: '⚡', label: 'High Priority',  preferences: { weightTime: 0.7, weightCost: 0.1, weightRisk: 0.2 }, riskTolerance: 0.5 }
+};
+
 export class ShipmentEngine {
   constructor(routingEngine, mapRenderer) {
     this.routingEngine = routingEngine; // For dynamic rerouting
@@ -6,19 +16,34 @@ export class ShipmentEngine {
     this.shipments = new Map();
     this.shipmentIdCounter = 0;
     
-    // Time scaling variables
-    // User requested 1 real day = 30 real seconds.
-    // So 1 day = 30000 milliseconds.
+    // 1 simulation day = 30 real seconds at 1x speed
     this.msPerDay = 30000;
   }
 
-  // Set time scale multiplier (e.g. 10x speeds up the simulation so 1 day = 3 seconds)
   setSpeedMultiplier(mult) {
     this.msPerDay = 30000 / mult;
   }
 
-  spawnShipment(sourceId, destId) {
-    const routingResult = this.routingEngine._dijkstra(sourceId, destId, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+  _randomCargoType() {
+    const types = Object.keys(CARGO_PROFILES);
+    return types[Math.floor(Math.random() * types.length)];
+  }
+
+  spawnShipment(sourceId, destId, options = {}) {
+    // ── Agent Identity ──────────────────────────────────────────────
+    const cargoType = options.cargoType || this._randomCargoType();
+    const priority  = options.priority  || (Math.floor(Math.random() * 5) + 1);
+    const profile   = CARGO_PROFILES[cargoType];
+
+    // Priority bias: P5 = urgency (more time weight), P1 = economy (more cost weight)
+    const priorityBias = 0.07 * (priority - 3);
+    const preferences = {
+      weightTime: Math.max(0.05, profile.preferences.weightTime + priorityBias),
+      weightCost: Math.max(0.05, profile.preferences.weightCost - priorityBias * 0.5),
+      weightRisk: profile.preferences.weightRisk
+    };
+    const routingWeights = { w_time: preferences.weightTime, w_cost: preferences.weightCost, w_risk: preferences.weightRisk };
+    const routingResult = this.routingEngine._dijkstra(sourceId, destId, routingWeights);
     
     if (!routingResult || !routingResult.edges || routingResult.edges.length === 0) {
       console.error(`Cannot spawn shipment from ${sourceId} to ${destId}: No viable path.`);
@@ -26,29 +51,43 @@ export class ShipmentEngine {
     }
 
     const id = `ship-${++this.shipmentIdCounter}`;
+    const spawnTime = Date.now();
+    const expectedTotalDays = routingResult.edges.reduce((s, e) => s + e.base_time, 0);
+
     const ship = {
       id,
-      origin: sourceId,
-      destination: destId,
-      originalDestination: destId, // BUG 4 FIX: Never mutate this so recovery always targets the real port
-      status: 'moving',
-      pathNodes: routingResult.path,
-      pathEdges: routingResult.edges,
-      
-      currentEdgeIndex: 0,
-      currentEdge: routingResult.edges[0],
-      progress: 0.0,
-      currentLatLng: null,
-      
-      currentHealthDegradation: 100,
-      lastRerouteTime: 0,
+      // ── Route ─────────────────────────────────────────────────
+      origin: sourceId, destination: destId, originalDestination: destId,
+      pathNodes: routingResult.path, pathEdges: routingResult.edges,
+      currentEdgeIndex: 0, currentEdge: routingResult.edges[0],
+      progress: 0.0, currentLatLng: null,
+      // ── State ─────────────────────────────────────────────────
+      status: 'moving', currentNode: sourceId,
+      nextNode: routingResult.path[1] || destId,
+      // ── Cargo & Agent ──────────────────────────────────────────
+      cargoType, cargoEmoji: profile.emoji, cargoLabel: profile.label,
+      priority, preferences, riskTolerance: profile.riskTolerance,
+      // ── Timing ────────────────────────────────────────────────
+      spawnTime,
+      expectedArrivalTime: spawnTime + expectedTotalDays * this.msPerDay,
+      actualArrivalTime: null, delay: 0,
+      // ── Path Intelligence ──────────────────────────────────────
+      pathScore: routingResult.score, currentHealthDegradation: 100,
+      // ── Rerouting ─────────────────────────────────────────────
+      lastRerouteTime: 0, rerouteCount: 0,
+      // ── Waiting ───────────────────────────────────────────────
+      waitingAt: null, waitingReason: null,
+      // ── Event Awareness ───────────────────────────────────────
+      affectedByEvents: [],
+      // ── Metrics ───────────────────────────────────────────────
+      totalTimeSpent: 0, totalDistanceTravelled: 0,
+      // ── Visual ────────────────────────────────────────────────
       _isEvadingVisually: false
     };
 
-    // Calculate initial position
     this._updateShipmentPosition(ship);
-    
     this.shipments.set(id, ship);
+    console.log(`[SPAWN] ${ship.cargoEmoji} ${id} | ${cargoType.toUpperCase()} P${priority} | ${sourceId} → ${destId} | ETA: ${expectedTotalDays.toFixed(1)}d`);
     return ship;
   }
 
@@ -113,6 +152,17 @@ export class ShipmentEngine {
         }
       }
 
+      // ── Accumulate agent metrics ────────────────────────────────────
+      ship.totalTimeSpent += daysPassed;
+      ship.totalDistanceTravelled += daysPassed * 24 * 46; // ~46 km/hr ship speed (25 knots)
+      
+      // ── Update position state ───────────────────────────────────────
+      if (ship.currentEdgeIndex < ship.pathEdges.length) {
+        const ce = ship.pathEdges[ship.currentEdgeIndex];
+        ship.currentNode = ce.source;
+        ship.nextNode = ce.destination;
+      }
+
       this._updateShipmentPosition(ship);
       this._applyGeometricEvasion(ship);
     });
@@ -120,7 +170,6 @@ export class ShipmentEngine {
     // Transmit to visualization layer — filter completed ships before telemetry
     this.mapRenderer.renderShipments(Array.from(this.shipments.values()));
     if (this.telemetryPanel) {
-       // BUG 7 FIX: Don't pass completed ships to telemetry panel
        const activeShips = Array.from(this.shipments.values()).filter(s => s.status !== 'completed');
        this.telemetryPanel.update(activeShips);
     }
@@ -213,42 +262,68 @@ export class ShipmentEngine {
             break;
          }
 
-         const defaultParams = { dynamic_time: edge.base_time, dynamic_cost: edge.base_cost, dynamic_risk: edge.base_risk };
-         originalScore += this.routingEngine.calculateEdgeScore(defaultParams, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
-         newScore += this.routingEngine.calculateEdgeScore(edge, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+       // Use ship's own preferences for path health scoring (personalized volatility)
+       const shipWeights = ship.preferences 
+         ? { w_time: ship.preferences.weightTime, w_cost: ship.preferences.weightCost, w_risk: ship.preferences.weightRisk }
+         : { w_time: 1, w_cost: 0.1, w_risk: 2.0 };
+       const defaultParams = { dynamic_time: edge.base_time, dynamic_cost: edge.base_cost, dynamic_risk: edge.base_risk };
+       originalScore += this.routingEngine.calculateEdgeScore(defaultParams, shipWeights);
+       newScore += this.routingEngine.calculateEdgeScore(edge, shipWeights);
       }
       
       const volatility = originalScore > 0 ? (newScore / originalScore) * 100 : 100;
       ship.currentHealthDegradation = volatility;
 
-      // If literally impassable, OR if severity degrades map health past 30% volatility threshold
-      if (isPathBlocked || volatility > 130) {
-         console.warn(`[INTELLIGENCE PULSE] Shipment ${ship.id} detected downstream volatility (Blocked: ${isPathBlocked}, Health Degraded: ${volatility.toFixed(0)}%). Executing evasive actions.`);
+      // Personalized reroute threshold based on risk tolerance:
+      // Risk-averse agents (oil=0.2) reroute at 110% degradation
+      // Risk-tolerant agents (general=0.6) tolerate up to 130% degradation
+      const rerouteThreshold = 100 + (ship.riskTolerance || 0.6) * 50;
+
+      // Also track event awareness
+      if (window.simulation && window.simulation.events) {
+        for (const ev of window.simulation.events.activeEvents.values()) {
+          if (!ship.affectedByEvents.includes(ev.rule?.name || ev.id)) {
+            // Check if this event is near the ship's path
+            if (isPathBlocked || volatility > rerouteThreshold) {
+              ship.affectedByEvents.push(ev.rule?.name || ev.id);
+              if (ship.affectedByEvents.length > 5) ship.affectedByEvents.shift();
+            }
+          }
+        }
+      }
+
+      if (isPathBlocked || volatility > rerouteThreshold) {
+         console.warn(`[INTELLIGENCE PULSE] ${ship.cargoEmoji || ''} ${ship.id} [tol:${rerouteThreshold.toFixed(0)}%] volatility=${volatility.toFixed(0)}% Blocked=${isPathBlocked}`);
          ship.status = 'rerouting';
          this._handleReroute(ship);
-      } else if (ship.status === 'waiting' && !isPathBlocked && volatility <= 130) {
-         // TASK 1 FIX: Auto-Recovery Sequence
-         // The blockade was dropped from the graph physics naturally. The ship boots back up!
-         console.log(`[RECOVERY PULSE] Shipment ${ship.id} un-anchoring from WAIT mode. Egress physically verifiable.`);
+      } else if (ship.status === 'waiting' && !isPathBlocked && volatility <= rerouteThreshold) {
+         console.log(`[RECOVERY PULSE] ${ship.id} un-anchoring from WAIT mode.`);
+         ship.waitingAt = null;
+         ship.waitingReason = null;
          ship.status = 'rerouting'; 
-         ship.lastRerouteTime = 0; // Immediate clearance bypass
+         ship.lastRerouteTime = 0;
          this._handleReroute(ship);
       }
     });
   }
 
   _handleReroute(ship) {
-     // Isolate precise topological anchor dynamically checking logical progression (e.g. >50% completed = forward routing)
      let currentNode;
      if (ship.progress >= 0.5) {
         currentNode = ship.currentEdge.destination;
      } else {
         currentNode = ship.currentEdge.source;
      }
-     let targetNode = ship.destination;
+     let targetNode = ship.originalDestination || ship.destination;
 
-     // Attempt standard re-route dodging the blocked edges natively dropped by RoutingEngine
-     let routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+     // Use this ship's own routing preferences — different agents choose different paths!
+     const weights = ship.preferences 
+       ? { w_time: ship.preferences.weightTime, w_cost: ship.preferences.weightCost, w_risk: ship.preferences.weightRisk }
+       : { w_time: 1, w_cost: 0.1, w_risk: 2.0 };
+
+     let routingResult = this.routingEngine._dijkstra(currentNode, targetNode, weights);
+
+     ship.rerouteCount = (ship.rerouteCount || 0) + 1;
 
      // PREDICTIVE AI: Wait vs Bypass Evaluation
      // BUG 3 FIX: Compare raw transit days (routingResult.totalTime) not the weighted score
@@ -271,10 +346,10 @@ export class ShipmentEngine {
         
         // Wait + remaining original path < cost of full bypass detour?
         if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTimeDays)) {
-             console.log(`[PREDICTIVE AI] Shipment ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d wait < ${bypassTimeDays.toFixed(1)}d bypass)`);
+             console.log(`[PREDICTIVE AI] ${ship.cargoEmoji || ''} ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d wait < ${bypassTimeDays.toFixed(1)}d bypass)`);
              ship.status = 'waiting';
-             // LOOP FIX: Stamp lastRerouteTime so evaluateGlobalDisruptions doesn't immediately
-             // re-trigger another reroute evaluation on this waiting ship in the same event cycle.
+             ship.waitingAt = currentNode;
+             ship.waitingReason = `Predictive hold: storm expires in ${maxEventDuration.toFixed(1)}d, bypass costs ${bypassTimeDays.toFixed(1)}d`;
              ship.lastRerouteTime = Date.now();
              return;
         }

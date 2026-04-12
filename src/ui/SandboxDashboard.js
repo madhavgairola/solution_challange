@@ -37,7 +37,26 @@ export class SandboxDashboard {
            <select id="dest-select" class="dash-select" disabled>
               <option value="" disabled selected>-- Awaiting Origin --</option>
            </select>
-           
+
+           <label style="margin-top:8px;">Cargo Type:</label>
+           <select id="cargo-type-select" class="dash-select">
+              <option value="">🎲 Random</option>
+              <option value="general">📦 General Cargo</option>
+              <option value="perishable">🥩 Perishable (Speed-first)</option>
+              <option value="oil">🛢️ Oil / Hazmat (Risk-averse)</option>
+              <option value="high_priority">⚡ High Priority (Urgent)</option>
+           </select>
+
+           <label style="margin-top:8px;">Priority Level:</label>
+           <select id="priority-select" class="dash-select">
+              <option value="">🎲 Random</option>
+              <option value="1">1 — Economy (Cheapest)</option>
+              <option value="2">2 — Standard</option>
+              <option value="3">3 — Normal</option>
+              <option value="4">4 — Expedited</option>
+              <option value="5">5 — Critical (Fastest)</option>
+           </select>
+
            <button id="btn-spawn-target" class="dashboard-btn spawn-target">🎯 Spawn Targeted Route</button>
         </div>
 
@@ -131,8 +150,13 @@ export class SandboxDashboard {
        }
        const sim = window.simulation;
        if (sim && sim.shipments) {
-          sim.shipments.spawnShipment(o, d);
-          console.log(`[Targeted Spawn] Ship manually deployed from ${o} to direct child ${d}`);
+          const cargoType = document.getElementById('cargo-type-select')?.value || '';
+          const priority = parseInt(document.getElementById('priority-select')?.value) || 0;
+          const options = {};
+          if (cargoType) options.cargoType = cargoType;
+          if (priority) options.priority = priority;
+          sim.shipments.spawnShipment(o, d, options);
+          console.log(`[Targeted Spawn] Ship deployed from ${o} to ${d}`, options);
        }
     });
 
