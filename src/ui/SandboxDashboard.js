@@ -106,7 +106,13 @@ export class SandboxDashboard {
         <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
         <button id="btn-deploy-custom" class="dashboard-btn warning" style="border: 1px solid #f59e0b;">⚙️ Deploy Custom Anomaly</button>
         <button id="btn-clear" class="dashboard-btn clear">♻️ Clear All Geometries</button>
+        
+        <div style="height:1px; background:rgba(255,255,255,0.1); margin:12px 0;"></div>
+        <button id="btn-demo-cascade" class="dashboard-btn" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; font-weight: 700;">
+           🎬 Run Cascade Scenario Demo
+        </button>
       </div>
+
     `;
 
     // Ensure the modal directly anchors to the viewport ignoring Sidebar CSS constraints
@@ -426,10 +432,52 @@ export class SandboxDashboard {
        window.simulationSpeed = parseFloat(e.target.value);
        speedDisplay.innerText = window.simulationSpeed.toFixed(1) + 'x';
     });
+    
+    const handleDemoCascade = () => {
+       const sim = window.simulation;
+       if (!sim || !sim.shipments || !sim.events) return;
+       
+       const btn = this.element.querySelector('#btn-demo-cascade');
+       if (!btn) return;
+       const origText = btn.innerHTML;
+       btn.innerHTML = '⚙️ Initializing Scenario...';
+       btn.disabled = true;
+
+       // 1. Clear any existing events
+       handleClear();
+
+       // 2. Spawn payload ships traversing through Suez bottleneck
+       sim.shipments.spawnShipment('singapore', 'rotterdam', { priority: 2, scheduledDepartureDay: 0 }); 
+       sim.shipments.spawnShipment('mumbai',    'hamburg',   { priority: 4, scheduledDepartureDay: 0.1 });
+       sim.shipments.spawnShipment('colombo',   'newyork',   { priority: 3, scheduledDepartureDay: 0.2 });
+       sim.shipments.spawnShipment('dubai',     'piraeus',   { priority: 5, scheduledDepartureDay: 0.3 }); // critical, will bypass immediately
+       sim.shipments.spawnShipment('karachi',   'rotterdam', { priority: 2, scheduledDepartureDay: 0.4 });
+
+       // Brief warp-speed to populate ships onto the map
+       window.simulationSpeed = 4.0;
+       if (speedSlider) speedSlider.value = 4.0;
+       if (speedDisplay) speedDisplay.innerText = '4.0x';
+
+       // 3. Fire blockade after ships are en-route
+       setTimeout(() => {
+          btn.innerHTML = '🚨 Striking Suez Canal...';
+          sim.events.injectGeometricEvent('suez_strike', {lat: 28.5, lng: 33.5}, 500000, 'blocked', 'Suez Blockade');
+          
+          window.simulationSpeed = 1.0; 
+          if (speedSlider) speedSlider.value = 1.0;
+          if (speedDisplay) speedDisplay.innerText = '1.0x';
+          
+          setTimeout(() => {
+             btn.innerHTML = origText;
+             btn.disabled = false;
+          }, 4000);
+       }, 3000);
+    };
 
     this.element.querySelector('#btn-spawn').addEventListener('click', handleSpawn);
     this.element.querySelector('#btn-suez').addEventListener('click', handleSuez);
     this.element.querySelector('#btn-deploy-custom').addEventListener('click', handleStorm);
     this.element.querySelector('#btn-clear').addEventListener('click', handleClear);
+    this.element.querySelector('#btn-demo-cascade')?.addEventListener('click', handleDemoCascade);
   }
 }
