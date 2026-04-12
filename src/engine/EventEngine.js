@@ -1,92 +1,94 @@
 export const EVENT_RULES = {
-  PORT_STRIKE: {
-    name: 'Labor Strike',
-    description: 'Work stoppage at port, causing massive delays and congestion.',
+  GEOGRAPHIC_DISRUPTION: {
+    name: 'Geographic Area Event',
+    description: 'A disruption bound to a specific geographic radius affecting all intersecting marine corridors natively.',
+    type: 'GEOMETRY' 
+  },
+  PORT_CLOSURE: {
+    name: 'Terminal Lockout',
+    description: 'Port operations completely shut down. No traffic allowed.',
     type: 'NODE',
-    multipliers: { time: 5.0, cost: 2.0, risk: 2.0 }
-  },
-  CANAL_BLOCKAGE: {
-    name: 'Canal Blockage',
-    description: 'Critical chokepoint completely blocked. Route impassable.',
-    type: 'NODE', // Will affect all edges connected to this node
-    multipliers: { time: 999.0, cost: 999.0, risk: 999.0 } // Effectively severs the path
-  },
-  WEATHER_STORM: {
-    name: 'Severe Typhoon / Hurricane',
-    description: 'Extreme weather causing vessel slow-steaming and routing hazards.',
-    type: 'REGION', // Target region strings
-    multipliers: { time: 2.0, cost: 1.5, risk: 5.0 }
+    multipliers: { time: 999.0, cost: 999.0, risk: 999.0 }
   }
 };
 
+export const SEVERITY_MULTIPLIERS = {
+  mild: 1.1,      // 10% delay
+  warning: 1.25,   // 25% delay
+  critical: 1.5,   // 50% delay
+  blocked: 999.0   // Impassable
+};
+
+// Standard math distance for coordinate intersection
+export function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // metres
+  const phi1 = lat1 * Math.PI/180;
+  const phi2 = lat2 * Math.PI/180;
+  const deltaPhi = (lat2-lat1) * Math.PI/180;
+  const deltaLambda = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+          Math.cos(phi1) * Math.cos(phi2) *
+          Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 export class EventEngine {
-  constructor(graph) {
+  constructor(graph, mapRenderer) {
     this.graph = graph;
+    this.mapRenderer = mapRenderer;
     this.activeEvents = new Map(); // id -> event details
   }
 
-  injectEvent(id, ruleKey, targetId) {
-    const rule = EVENT_RULES[ruleKey];
-    if (!rule) {
-      console.warn(`Event rule ${ruleKey} not found.`);
-      return;
-    }
-
-    const event = {
-      id,
-      ruleKey,
-      targetId,
-      rule,
-      timestamp: Date.now()
-    };
-
-    this.activeEvents.set(id, event);
-    this._applyEventImpact(event);
+  // Example: injectGeometricEvent('storm1', {lat: 10, lng: 50}, 500000, 'warning', 'Monsoon block')
+  injectGeometricEvent(id, position, radius, severity, description = "Areal Disruption") {
+     const event = {
+        id,
+        ruleKey: 'GEOGRAPHIC_DISRUPTION',
+        rule: { name: description, description: `Severity: ${severity}` },
+        position, // {lat, lng}
+        radius,   // in meters
+        severity, // mild, warning, critical, blocked
+        timestamp: Date.now()
+     };
+     this.activeEvents.set(id, event);
+     this._recalculateAllWeights();
   }
 
   clearEvent(id) {
-    const event = this.activeEvents.get(id);
-    if (!event) return;
-    
+    if(!this.activeEvents.has(id)) return;
     this.activeEvents.delete(id);
     this._recalculateAllWeights();
   }
 
   _applyEventImpact(event) {
-    const { rule, targetId } = event;
-
-    if (rule.type === 'NODE') {
-      // Find all edges associated with this node and apply multipliers
+    if (event.ruleKey === 'GEOGRAPHIC_DISRUPTION') {
       const edges = this.graph.getAllEdges();
-      edges.forEach(edge => {
-        if (edge.source === targetId || edge.destination === targetId) {
-          edge.dynamic_time *= rule.multipliers.time;
-          edge.dynamic_cost *= rule.multipliers.cost;
-          edge.dynamic_risk *= rule.multipliers.risk;
-        }
-      });
-      console.log(`🌀 Applied ${rule.name} impact to node ${targetId}`);
-    } 
-    else if (rule.type === 'REGION') {
-      // Find all nodes in region, then affect their edges
-      const nodesInRegion = this.graph.getAllNodes().filter(n => n.region.includes(targetId));
-      const regionNodeIds = new Set(nodesInRegion.map(n => n.id));
+      const mult = SEVERITY_MULTIPLIERS[event.severity] || 1.0;
       
-      const edges = this.graph.getAllEdges();
       edges.forEach(edge => {
-        if (regionNodeIds.has(edge.source) && regionNodeIds.has(edge.destination)) {
-          // Both in region = full impact
-          edge.dynamic_time *= rule.multipliers.time;
-          edge.dynamic_cost *= rule.multipliers.cost;
-          edge.dynamic_risk *= rule.multipliers.risk;
-        } else if (regionNodeIds.has(edge.source) || regionNodeIds.has(edge.destination)) {
-          // Edge entering/leaving region = half impact
-          edge.dynamic_time *= 1 + ((rule.multipliers.time - 1) / 2);
-          edge.dynamic_cost *= 1 + ((rule.multipliers.cost - 1) / 2);
-          edge.dynamic_risk *= 1 + ((rule.multipliers.risk - 1) / 2);
-        }
+         if (!edge.geometry) return;
+         
+         // Mathematical ray-casting/intersection check
+         // If ANY point in the geometry falls within the event radius, the edge is contaminated.
+         // Wait, checking hundreds of points x edges is O(n^2), but we only do it ONCE when an event occurs! Perfect.
+         let isContaminated = false;
+         for (let i = 0; i < edge.geometry.length; i++) {
+            const [lng, lat] = edge.geometry[i];
+            const dist = haversineDistance(event.position.lat, event.position.lng, lat, lng);
+            if (dist <= event.radius) {
+               isContaminated = true;
+               break;
+            }
+         }
+
+         if (isContaminated) {
+            edge.dynamic_time *= mult;
+            edge.dynamic_cost *= mult;
+            edge.dynamic_risk *= mult;
+         }
       });
-      console.log(`⛈️ Applied ${rule.name} impact to region ${targetId}`);
+      console.log(`🌀 Applied Geometric Event [${event.severity}] to spatial intersections.`);
     }
   }
 
@@ -102,6 +104,11 @@ export class EventEngine {
     // Reapply all active events
     for (const event of this.activeEvents.values()) {
       this._applyEventImpact(event);
+    }
+
+    // Refresh UI Map overlays dynamically natively referencing EventEngine state
+    if (this.mapRenderer) {
+       this.mapRenderer.renderEvents(Array.from(this.activeEvents.values()));
     }
   }
 }

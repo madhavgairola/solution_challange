@@ -17,6 +17,8 @@ export class MapRenderer {
 
     this.nodeLayers = new Map();
     this.edgeLayers = new Map();
+    this.shipmentLayers = new Map();
+    this.eventLayers = new Map();
     this.activePortId = null;
 
     // Dynamically scale pathway line thicknesses and node sizes with map zooming to simulate true physical geographic size
@@ -164,6 +166,9 @@ export class MapRenderer {
         const route = searoute(origin, destination);
         if (!route || !route.geometry || !route.geometry.coordinates) throw new Error('Searoute returned empty geometry');
 
+        // BIND PHYSICAL GEOMETRY COORDINATES TO EDGE OBJECT FOR SIMULATION ENGINE
+        edge.geometry = route.geometry.coordinates;
+
         const currentZoomWeight = Math.max(1.0, this.map.getZoom() * 0.7);
 
         // Only style when newly drawn, let updateVisualScales handle the rest immediately after initialization
@@ -182,6 +187,9 @@ export class MapRenderer {
            L.polyline([[dest.lat, dest.lng], [dest.ocean_lat, dest.ocean_lng]], { color: '#64748b', weight: 1, dashArray: '2, 3', opacity: 0.8 }).addTo(this.map);
         }
       } catch (err) {
+        // Fallback drawing if searoute blockades
+        console.warn(`Fallback mapping active for edge ${edge.source}-${edge.destination}`);
+        
         // Trans-Pacific Wrap
         let sLng = origin[0]; let sLat = origin[1];
         let dLng = destination[0]; let dLat = destination[1];
@@ -191,6 +199,10 @@ export class MapRenderer {
         // Faint visual geometric connector approximating shipping curvature 
         const currentZoomWeight = Math.max(1.0, this.map.getZoom() * 0.7);
         const latlngs = this.generateOceanArc(sLat, sLng, dLat, dLng);
+
+        // BIND PHYSICAL GEOMETRY COORDINATES TO EDGE OBJECT FOR SIMULATION ENGINE
+        edge.geometry = latlngs.map(l => [l[1], l[0]]); // GeoJSON specification requires [lng, lat]
+        
         const currentOpacity = this.activePortId ? (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId) ? 1.0 : 0.15) : 0.5;
         const currentColor = this.activePortId && (pathId1.startsWith(this.activePortId + '-') || pathId1.endsWith('-' + this.activePortId)) ? '#3ecf8e' : '#cbd5e1';
 
@@ -318,5 +330,83 @@ export class MapRenderer {
           });
        }
     });
+  }
+
+  // Draw distinct area-of-effect severity zones across the map for events
+  renderEvents(events) {
+     const activeIds = new Set(events.map(e => e.id));
+     
+     // Remove stale
+     for (const [id, layer] of this.eventLayers.entries()) {
+        if (!activeIds.has(id)) {
+           this.map.removeLayer(layer);
+           this.eventLayers.delete(id);
+        }
+     }
+
+     // Add or Update
+     events.forEach(e => {
+        if (!e.position || !e.severity) return; // Must have geospatial anchor
+
+        let color = '#fbbf24'; // Yellow
+        if (e.severity === 'warning') color = '#fb923c'; // Orange
+        if (e.severity === 'critical') color = '#ef4444'; // Red
+        if (e.severity === 'blocked') color = '#000000'; // Black
+
+        if (this.eventLayers.has(e.id)) {
+           // Update existing silently
+           const layer = this.eventLayers.get(e.id);
+           layer.setStyle({ color: color, fillColor: color });
+        } else {
+           // Create
+           const circle = L.circle([e.position.lat, e.position.lng], {
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.2,
+              weight: 2,
+              radius: e.radius || 300000 // 300km default
+           }).addTo(this.map);
+
+           circle.bindTooltip(`<b>${e.rule.name}</b><br/>${e.rule.description}`, { direction: 'top' });
+           this.eventLayers.set(e.id, circle);
+        }
+     });
+  }
+
+  // 60-FPS render hook called by ShipmentEngine tightly integrating the exact physical coordinates
+  renderShipments(shipments) {
+     const activeIds = new Set();
+     
+     shipments.forEach(ship => {
+        if (ship.status !== 'moving' && ship.status !== 'delayed') return;
+        if (!ship.currentLatLng) return;
+
+        activeIds.add(ship.id);
+
+        if (!this.shipmentLayers.has(ship.id)) {
+           const icon = L.divIcon({
+              className: 'custom-ship-icon',
+              html: `<div class="ship-dot" style="background-color: ${ship.status === 'delayed' ? '#fbbf24' : '#38bdf8'}; box-shadow: 0 0 10px ${ship.status === 'delayed' ? '#fbbf24' : '#38bdf8'};"></div>`,
+              iconSize: [12, 12],
+              iconAnchor: [6, 6]
+           });
+           
+           const marker = L.marker(ship.currentLatLng, { icon, zIndexOffset: 1000 }).addTo(this.map);
+           marker.bindTooltip(`<b>Shipment: ${ship.id}</b><br/>To: ${ship.destination}<br/>Status: ${ship.status}`);
+           this.shipmentLayers.set(ship.id, marker);
+        } else {
+           const marker = this.shipmentLayers.get(ship.id);
+           marker.setLatLng(ship.currentLatLng);
+           // Soft update HTML conditionally if status changes... skipped here for perf, can build later
+        }
+     });
+
+     // Sweep dead shipments
+     for (const [id, marker] of this.shipmentLayers.entries()) {
+        if (!activeIds.has(id)) {
+           this.map.removeLayer(marker);
+           this.shipmentLayers.delete(id);
+        }
+     }
   }
 }
