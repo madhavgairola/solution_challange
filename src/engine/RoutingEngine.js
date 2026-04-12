@@ -27,6 +27,23 @@ export class RoutingEngine {
    * Supports node exclusion for Yen's Algorithm (K-Shortest Paths)
    */
   _dijkstra(source, target, weights, excludedNodes = new Set(), excludedEdges = new Set()) {
+    // INTELLIGENCE OVERRIDE: Fast-Path Direct Connection
+    // If the destination is a direct topological child of the current node, take it immediately!
+    const directEdge = this.graph.getEdges(source).find(e => e.destination === target);
+    if (directEdge && (directEdge.dynamic_time ?? directEdge.base_time) < 900) {
+       const edgeId = `${source}-${target}`;
+       if (!excludedEdges.has(edgeId) && !excludedNodes.has(target)) {
+          return {
+             path: [source, target],
+             totalTime: directEdge.dynamic_time,
+             totalCost: directEdge.dynamic_cost,
+             totalRisk: directEdge.dynamic_risk,
+             score: this.calculateEdgeScore(directEdge, weights),
+             edges: [directEdge]
+          };
+       }
+    }
+
     const distances = {};
     const previous = {};
     const unvisited = new Set();
