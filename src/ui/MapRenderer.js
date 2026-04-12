@@ -388,7 +388,7 @@ export class MapRenderer {
           // Initialize Visual Representation
           const icon = L.divIcon({
             className: 'custom-ship-icon',
-            html: `<div class="shipment-marker" id="marker-${ship.id}"></div>`,
+            html: `<div class="ship-dot" id="marker-${ship.id}"></div>`,
             iconSize: [12, 12]
           });
           marker = L.marker(ship.currentLatLng, { icon }).addTo(this.map);
