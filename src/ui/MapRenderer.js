@@ -406,6 +406,8 @@ export class MapRenderer {
                 activeColor = '#f43f5e'; // Red (Blocked / Evasive)
              } else if (ship.status === 'waiting') {
                 activeColor = '#fbbf24'; // Yellow (Cooldown)
+             } else if (ship._isEvadingVisually) {
+                activeColor = '#d946ef'; // Magenta (Ray Evasion Geometry Active)
              } else if (ship.currentHealthDegradation && ship.currentHealthDegradation > 115) {
                 activeColor = '#fb923c'; // Orange-Yellow (Degraded Health Tolerance)
              }

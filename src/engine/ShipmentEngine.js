@@ -94,6 +94,7 @@ export class ShipmentEngine {
       }
 
       this._updateShipmentPosition(ship);
+      this._applyGeometricEvasion(ship);
     });
     
     // Transmit to visualization layer smoothly natively
@@ -101,6 +102,55 @@ export class ShipmentEngine {
     if (this.telemetryPanel) {
        this.telemetryPanel.update(Array.from(this.shipments.values()));
     }
+  }
+
+  _applyGeometricEvasion(ship) {
+      if (!ship.currentLatLng || !window.simulation || !window.simulation.events) return;
+      
+      const activeEvents = window.simulation.events.activeEvents;
+      for (const event of activeEvents.values()) {
+         if (!event.position || !event.radius || event.ruleKey !== 'GEOGRAPHIC_DISRUPTION') continue;
+
+         // Quick cartesian bounds bypass optimization
+         if (Math.abs(ship.currentLatLng[0] - event.position.lat) > 10 || Math.abs(ship.currentLatLng[1] - event.position.lng) > 10) continue;
+
+         // Replicate Haversine purely mathematically for 60-FPS loop
+         const R = 6371e3;
+         const phi1 = event.position.lat * Math.PI/180;
+         const phi2 = ship.currentLatLng[0] * Math.PI/180;
+         const dPhi = (ship.currentLatLng[0] - event.position.lat) * Math.PI/180;
+         const dLambda = (ship.currentLatLng[1] - event.position.lng) * Math.PI/180;
+
+         const a = Math.sin(dPhi/2) * Math.sin(dPhi/2) + Math.cos(phi1) * Math.cos(phi2) * Math.sin(dLambda/2) * Math.sin(dLambda/2);
+         const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+         if (dist < event.radius) {
+            // AGENT CAUGHT IN AREA-OF-EFFECT! Actively deflect geometric projection line.
+            const targetDist = event.radius * 1.05; // Force 5% outer bulge curve tightly hugging radius 
+            
+            const dLat = ship.currentLatLng[0] - event.position.lat;
+            let dLng = ship.currentLatLng[1] - event.position.lng;
+            
+            if (dLng > 180) dLng -= 360;
+            if (dLng < -180) dLng += 360;
+            if (dLat === 0 && dLng === 0) dLng = 0.001; // Avoid perfect center zero-vector crash
+            
+            // Ray scalar based natively on projection intersection distances
+            const scalar = targetDist / dist;
+            
+            const deflectedLat = event.position.lat + (dLat * scalar);
+            const deflectedLng = event.position.lng + (dLng * scalar);
+            
+            ship.currentLatLng = [deflectedLat, deflectedLng];
+            
+            // Telemetry formatting hook - don't permanently alter moving since it's structurally progressing still
+            if (ship.status === 'moving') {
+                ship._isEvadingVisually = true;
+            }
+         } else {
+            ship._isEvadingVisually = false;
+         }
+      }
   }
 
   evaluateGlobalDisruptions() {
@@ -137,12 +187,25 @@ export class ShipmentEngine {
          console.warn(`[INTELLIGENCE PULSE] Shipment ${ship.id} detected downstream volatility (Blocked: ${isPathBlocked}, Health Degraded: ${volatility.toFixed(0)}%). Executing evasive actions.`);
          ship.status = 'rerouting';
          this._handleReroute(ship);
+      } else if (ship.status === 'waiting' && !isPathBlocked && volatility <= 130) {
+         // TASK 1 FIX: Auto-Recovery Sequence
+         // The blockade was dropped from the graph physics naturally. The ship boots back up!
+         console.log(`[RECOVERY PULSE] Shipment ${ship.id} un-anchoring from WAIT mode. Egress physically verifiable.`);
+         ship.status = 'rerouting'; 
+         ship.lastRerouteTime = 0; // Immediate clearance bypass
+         this._handleReroute(ship);
       }
     });
   }
 
   _handleReroute(ship) {
-     const currentNode = ship.currentEdge.source;
+     // Isolate precise topological anchor dynamically checking logical progression (e.g. >50% completed = forward routing)
+     let currentNode;
+     if (ship.progress >= 0.5) {
+        currentNode = ship.currentEdge.destination;
+     } else {
+        currentNode = ship.currentEdge.source;
+     }
      let targetNode = ship.destination;
 
      // Attempt standard re-route dodging the blocked edges natively dropped by RoutingEngine

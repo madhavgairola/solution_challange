@@ -42,9 +42,15 @@ export class TelemetryPanel {
         
         // Status colorization mapping
         let statusColor = '#38bdf8'; // Blue (Moving)
+        let displayStatus = ship.status.toUpperCase();
+        
         if (ship.status === 'rerouting') statusColor = '#f43f5e'; // Red
         else if (ship.status === 'waiting') statusColor = '#fbbf24'; // Yellow
         else if (ship.status === 'completed') statusColor = '#10b981'; // Green
+        else if (ship._isEvadingVisually) {
+             statusColor = '#d946ef'; // Magenta Evasion Active!
+             displayStatus = 'EVADING';
+        }
 
         // Translate nodes to names
         const originName = PORTS.find(p => p.id === ship.origin)?.name || ship.origin;
@@ -66,7 +72,7 @@ export class TelemetryPanel {
 
         html += `
           <div class="telemetry-agent-card" style="border-left: 3px solid ${statusColor}">
-             <div class="agent-id">ID: ${ship.id} <span class="agent-status" style="color:${statusColor}">[${ship.status.toUpperCase()}]</span></div>
+             <div class="agent-id">ID: ${ship.id} <span class="agent-status" style="color:${statusColor}">[${displayStatus}]</span></div>
              <div class="agent-route">${originName} -> ${destName}</div>
              <div class="agent-health">Path Volatility: <span style="color:${healthColor}; font-weight:bold;">${healthText}</span></div>
           </div>
