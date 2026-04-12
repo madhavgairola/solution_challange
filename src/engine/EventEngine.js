@@ -63,9 +63,8 @@ export class EventEngine {
   }
 
   update(dt) {
-     const simulationMultiplier = 1000000;
-     const dtSimulatedMs = dt * simulationMultiplier;
-     const daysPassed = dtSimulatedMs / (24 * 60 * 60 * 1000);
+     // Sycnhronized to exact same physics clock as ShipmentEngine
+     const daysPassed = dt / 30000;
 
      let stateChanged = false;
      for (const [id, event] of this.activeEvents.entries()) {
