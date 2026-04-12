@@ -44,12 +44,17 @@ export class TelemetryPanel {
         let statusColor = '#38bdf8'; // Blue (Moving)
         let displayStatus = ship.status.toUpperCase();
         
-        if (ship.status === 'rerouting') statusColor = '#f43f5e'; // Red
-        else if (ship.status === 'waiting') statusColor = '#fbbf24'; // Yellow
-        else if (ship.status === 'completed') statusColor = '#10b981'; // Green
-        else if (ship._isEvadingVisually) {
+        // BUG 2 FIX: Check _isEvadingVisually FIRST before defaulting to status color
+        // (evading ships still have status === 'moving', so it must be checked before the default)
+        if (ship._isEvadingVisually && ship.status === 'moving') {
              statusColor = '#d946ef'; // Magenta Evasion Active!
              displayStatus = 'EVADING';
+        } else if (ship.status === 'rerouting') {
+             statusColor = '#f43f5e';
+        } else if (ship.status === 'waiting') {
+             statusColor = '#fbbf24';
+        } else if (ship.status === 'completed') {
+             statusColor = '#10b981';
         }
 
         // Translate nodes to names
@@ -60,13 +65,15 @@ export class TelemetryPanel {
         let healthText = '100%';
         let healthColor = '#10b981'; // Green
         
-        if (ship.currentHealthDegradation) {
+        // BUG 1 FIX: Only show health warning when actually degraded (> 100), not at baseline
+        if (ship.currentHealthDegradation && ship.currentHealthDegradation > 100) {
            const percent = ship.currentHealthDegradation.toFixed(0);
-           healthText = `${percent}% (Tolerable)`;
-           healthColor = '#fbbf24'; // Yellow
-           if (percent > 130) {
-              healthText = `${percent}% (Critical -> Rerouting)`;
+           if (ship.currentHealthDegradation > 130) {
+              healthText = `${percent}% (Critical → Rerouting)`;
               healthColor = '#f43f5e';
+           } else {
+              healthText = `${percent}% (Elevated)`;
+              healthColor = '#fbbf24';
            }
         }
 

@@ -30,17 +30,19 @@ export class ShipmentEngine {
       id,
       origin: sourceId,
       destination: destId,
-      status: 'moving', // moving, delayed, rerouting, waiting, completed
+      originalDestination: destId, // BUG 4 FIX: Never mutate this so recovery always targets the real port
+      status: 'moving',
       pathNodes: routingResult.path,
       pathEdges: routingResult.edges,
       
       currentEdgeIndex: 0,
       currentEdge: routingResult.edges[0],
-      progress: 0.0, // 0.0 to 1.0 along currentEdge
+      progress: 0.0,
       currentLatLng: null,
       
-      currentHealthDegradation: 100, // baseline for UI telemetry 
-      lastRerouteTime: 0 // Cooldown protection lock
+      currentHealthDegradation: 100,
+      lastRerouteTime: 0,
+      _isEvadingVisually: false
     };
 
     // Calculate initial position
@@ -102,10 +104,12 @@ export class ShipmentEngine {
       this._applyGeometricEvasion(ship);
     });
     
-    // Transmit to visualization layer smoothly natively
+    // Transmit to visualization layer — filter completed ships before telemetry
     this.mapRenderer.renderShipments(Array.from(this.shipments.values()));
     if (this.telemetryPanel) {
-       this.telemetryPanel.update(Array.from(this.shipments.values()));
+       // BUG 7 FIX: Don't pass completed ships to telemetry panel
+       const activeShips = Array.from(this.shipments.values()).filter(s => s.status !== 'completed');
+       this.telemetryPanel.update(activeShips);
     }
   }
 
@@ -118,8 +122,13 @@ export class ShipmentEngine {
       for (const event of activeEvents.values()) {
          if (!event.position || !event.radius || event.ruleKey !== 'GEOGRAPHIC_DISRUPTION') continue;
 
-         // Quick cartesian bounds bypass optimization
-         if (Math.abs(ship.currentLatLng[0] - event.position.lat) > 10 || Math.abs(ship.currentLatLng[1] - event.position.lng) > 10) continue;
+         // BUG 6 FIX: Skip geometric evasion entirely for mild storms — ship just takes the delay
+         if (event.severity === 'mild') continue;
+
+         // BUG 8 FIX: Convert radius meters → approximate degrees for correct bounds bypass
+         const radiusDeg = (event.radius / 1000) / 111; // 1 deg ≈ 111km
+         if (Math.abs(ship.currentLatLng[0] - event.position.lat) > radiusDeg * 2.6 || 
+             Math.abs(ship.currentLatLng[1] - event.position.lng) > radiusDeg * 2.6) continue;
 
          // Replicate Haversine purely mathematically for 60-FPS loop
          const R = 6371e3;
@@ -163,6 +172,9 @@ export class ShipmentEngine {
       
       if (ship.status === 'moving') {
          ship._isEvadingVisually = isEvading;
+      } else {
+         // BUG 5 FIX: Always reset stale evasion flag on non-moving ships
+         ship._isEvadingVisually = false;
       }
   }
 
@@ -226,8 +238,9 @@ export class ShipmentEngine {
      let routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
 
      // PREDICTIVE AI: Wait vs Bypass Evaluation
-     if (routingResult) {
-        let bypassTime = routingResult.totalTime;
+     // BUG 3 FIX: Compare raw transit days (routingResult.totalTime) not the weighted score
+     if (routingResult && routingResult.totalTime > 0) {
+        const bypassTimeDays = routingResult.totalTime; // actual day count
         
         let origBaseTime = 0;
         for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
@@ -237,14 +250,15 @@ export class ShipmentEngine {
         let maxEventDuration = 0;
         if (window.simulation && window.simulation.events) {
            for (const ev of window.simulation.events.activeEvents.values()) {
-              if (ev.durationDays) maxEventDuration = Math.max(maxEventDuration, ev.durationDays);
+              if (ev.durationDays && ev.durationDays > 0) {
+                 maxEventDuration = Math.max(maxEventDuration, ev.durationDays);
+              }
            }
         }
         
-        // If dropping anchor and waiting for the storm to expire is mathematically faster than the detour...
-        // e.g. Bypass takes 20 days. Normal path takes 5 days. Storm lasts 3 days. Wait (8d) < Bypass (20d).
-        if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTime)) {
-             console.log(`[PREDICTIVE AI] Shipment ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d predicted < ${bypassTime.toFixed(1)}d bypass)`);
+        // Wait + remaining original path < cost of full bypass detour?
+        if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTimeDays)) {
+             console.log(`[PREDICTIVE AI] Shipment ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d wait < ${bypassTimeDays.toFixed(1)}d bypass)`);
              ship.status = 'waiting';
              return;
         }
@@ -253,27 +267,34 @@ export class ShipmentEngine {
      if (!routingResult || routingResult.edges.length === 0) {
         console.warn(`Shipment ${ship.id} destination ${targetNode} completely blockaded.`);
         
-        // INTELLIGENCE FALLBACK: Find closest geographical safe neighbor to the blocked destination
-        // Grab the edges coming IN or OUT of the destination that aren't blocked!
-        const destEdges = this.routingEngine.graph.getEdges(targetNode);
-        let safeNeighbor = null;
-        let lowestCost = Infinity;
+        // BUG 4 FIX: Reroute toward originalDestination — don't permanently mutate ship.destination
+        // Try the real destination first (in case we previously deflected)
+        const realDest = ship.originalDestination || ship.destination;
+        if (realDest !== targetNode) {
+           routingResult = this.routingEngine._dijkstra(currentNode, realDest, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+        }
 
-        destEdges.forEach(e => {
-           if (e.dynamic_time < 900) {
-              const cost = e.dynamic_time;
-              if (cost < lowestCost) {
-                 lowestCost = cost;
-                 safeNeighbor = e.destination === targetNode ? e.source : e.destination;
+        if (!routingResult || routingResult.edges.length === 0) {
+           // True fallback: route to closest reachable neighbor
+           const destEdges = this.routingEngine.graph.getEdges(realDest);
+           let safeNeighbor = null;
+           let lowestCost = Infinity;
+
+           destEdges.forEach(e => {
+              if (e.dynamic_time < 900) {
+                 const cost = e.dynamic_time;
+                 if (cost < lowestCost) {
+                    lowestCost = cost;
+                    safeNeighbor = e.destination === realDest ? e.source : e.destination;
+                 }
               }
-           }
-        });
+           });
 
-        if (safeNeighbor) {
-           console.log(`Shipment ${ship.id} defaulting delivery intercept to nearby safe harbor: ${safeNeighbor}`);
-           targetNode = safeNeighbor;
-           ship.destination = safeNeighbor; // Perm-update manifest
-           routingResult = this.routingEngine._dijkstra(currentNode, targetNode, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+           if (safeNeighbor) {
+              console.log(`Shipment ${ship.id} temporary intercept to safe harbor: ${safeNeighbor}`);
+              // Use temporary variable — do NOT mutate ship.destination permanently
+              routingResult = this.routingEngine._dijkstra(currentNode, safeNeighbor, { w_time: 1, w_cost: 0.1, w_risk: 2.0 });
+           }
         }
 
         if (!routingResult || routingResult.edges.length === 0) {
@@ -289,13 +310,10 @@ export class ShipmentEngine {
      ship.pathEdges = routingResult.edges;
      ship.currentEdgeIndex = 0;
      ship.currentEdge = routingResult.edges[0];
-     ship.currentHealthDegradation = 100; // Reset telemetry baseline upon successful evasive re-pathing
-     
-     // Reverse progress to simulate heading back to node?
-     // Actually, if it's returning, we simply set progress = 0 logically and visually 'warp' it to the node, 
-     // or just resume from 0 as if it successfully traversed the node. For real simulation we'd create a specific backtrack.
+     ship.currentHealthDegradation = 100;
      ship.progress = 0.0;
      ship.lastRerouteTime = Date.now();
+     ship._isEvadingVisually = false; // BUG 5 FIX: Always clear stale evasion on reroute
      ship.status = 'moving';
   }
 
