@@ -172,7 +172,8 @@ export class ShipmentEngine {
       if (ship.status !== 'moving' && ship.status !== 'waiting') return;
       
       // Enforce temporal cooldown window to stabilize reroute mapping storms (e.g., 5 seconds)
-      if (Date.now() - ship.lastRerouteTime < 5000) return;
+      // IMPORTANT: Skip cooldown for WAITING ships — they must be allowed to recover immediately when a blockade clears!
+      if (ship.status === 'moving' && Date.now() - ship.lastRerouteTime < 5000) return;
       
       let isPathBlocked = false;
       let originalScore = 0;
