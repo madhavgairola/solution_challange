@@ -60,7 +60,31 @@ export class SandboxDashboard {
               <option value="5">5 — Critical (Fastest)</option>
            </select>
 
-           <button id="btn-calc-routes" class="dashboard-btn spawn-target" style="margin-top:10px;">
+           <!-- Departure Time Scheduler -->
+           <label style="margin-top:10px;">Departure Time:</label>
+           <div style="font-size:10px; color:#475569; margin-bottom:5px;" id="sim-now-label">🕒 Sim clock: loading...</div>
+           <div style="display:flex; gap:12px; margin-bottom:6px;">
+             <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:#cbd5e1; cursor:pointer;">
+               <input type="radio" name="depart-mode" id="depart-now" value="now" checked> 🟢 Now
+             </label>
+             <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:#cbd5e1; cursor:pointer;">
+               <input type="radio" name="depart-mode" id="depart-sched" value="scheduled"> ⏱️ Schedule
+             </label>
+           </div>
+           <div id="depart-config" style="display:none; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; margin-bottom:4px;">
+             <div style="font-size:10px; color:#475569; margin-bottom:5px;">Depart in (sim time):</div>
+             <div style="display:flex; align-items:center; gap:6px;">
+               <input type="number" id="depart-sim-hours" min="0" max="999" value="6"
+                 style="width:54px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:5px; padding:4px 6px; font-size:12px;">
+               <span style="font-size:10px; color:#64748b;">sim hrs</span>
+               <input type="number" id="depart-sim-mins" min="0" max="55" step="5" value="0"
+                 style="width:44px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:5px; padding:4px 6px; font-size:12px;">
+               <span style="font-size:10px; color:#64748b;">sim min</span>
+             </div>
+             <div style="font-size:10px; color:#3ecf8e; margin-top:5px;" id="depart-real-preview">≈ real time: —</div>
+           </div>
+
+           <button id="btn-calc-routes" class="dashboard-btn spawn-target" style="margin-top:6px;">
              🔍 Calculate Best Routes
            </button>
 
@@ -140,6 +164,57 @@ export class SandboxDashboard {
       if (destSelect.value === originId) destSelect.value = '';
     });
 
+    // ── Departure scheduler UI ──────────────────────────────────────────
+    const departNowEl   = this.element.querySelector('#depart-now');
+    const departSchedEl = this.element.querySelector('#depart-sched');
+    const departConfig  = this.element.querySelector('#depart-config');
+    const simNowLabel   = this.element.querySelector('#sim-now-label');
+    const realPreview   = this.element.querySelector('#depart-real-preview');
+    const hoursInput    = this.element.querySelector('#depart-sim-hours');
+    const minsInput     = this.element.querySelector('#depart-sim-mins');
+
+    // Show/hide scheduler config panel
+    const toggleDepartConfig = () => {
+      departConfig.style.display = departSchedEl.checked ? 'block' : 'none';
+    };
+    departNowEl.addEventListener('change',   toggleDepartConfig);
+    departSchedEl.addEventListener('change', toggleDepartConfig);
+
+    // Helper: compute delay days from form inputs
+    const getDepartDelayDays = () => {
+      if (!departSchedEl || !departSchedEl.checked) return 0;
+      const simHrs = parseFloat(hoursInput?.value) || 0;
+      const simMin = parseFloat(minsInput?.value)  || 0;
+      return (simHrs + simMin / 60) / 24;
+    };
+
+    // Live preview: how many real seconds until departure
+    const updatePreview = () => {
+      const delayDays = getDepartDelayDays();
+      const realSecs  = delayDays * 30; // 1 sim day = 30 real seconds at 1x speed
+      const speed     = window.simulationSpeed || 1;
+      const actualSecs = realSecs / speed;
+      if (actualSecs < 60) {
+        realPreview.textContent = `≈ real time: ${actualSecs.toFixed(0)}s at ${speed}x speed`;
+      } else {
+        realPreview.textContent = `≈ real time: ${(actualSecs/60).toFixed(1)} min at ${speed}x speed`;
+      }
+    };
+    hoursInput?.addEventListener('input', updatePreview);
+    minsInput?.addEventListener('input',  updatePreview);
+    updatePreview();
+
+    // Live sim-clock label inside the form
+    const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    setInterval(() => {
+      const days = window.simulationElapsedDays || 0;
+      const start = window._simStartEpoch || Date.now();
+      const now   = new Date(start + days * 86400000);
+      if (simNowLabel) {
+        simNowLabel.textContent = `🕒 Now: ${now.getDate()} ${MONTHS_SHORT[now.getMonth()]} ${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      }
+    }, 1000);
+
     calcBtn.addEventListener('click', () => {
       const o = originSelect.value;
       const d = destSelect.value;
@@ -215,16 +290,19 @@ export class SandboxDashboard {
         // Bind deploy buttons
         resultsPanel.querySelectorAll('[data-route-idx]').forEach(btn => {
           btn.addEventListener('click', () => {
-            const idx = parseInt(btn.dataset.routeIdx);
+            const idx         = parseInt(btn.dataset.routeIdx);
             const chosenRoute = window._calculatedRoutes[idx];
-            const sim2 = window.simulation;
+            const sim2        = window.simulation;
             if (!sim2 || !sim2.shipments || !chosenRoute) return;
 
-            const cargoType = this.element.querySelector('#cargo-type-select').value;
-            const priority  = parseInt(this.element.querySelector('#priority-select').value) || 0;
+            const cargoType  = this.element.querySelector('#cargo-type-select').value;
+            const priority   = parseInt(this.element.querySelector('#priority-select').value) || 0;
+            const delayDays  = getDepartDelayDays(); // 0 if "Now" is selected
+
             const opts = {};
-            if (cargoType) opts.cargoType = cargoType;
-            if (priority)  opts.priority  = priority;
+            if (cargoType)    opts.cargoType            = cargoType;
+            if (priority)     opts.priority             = priority;
+            if (delayDays > 0) opts.scheduledDepartureDay = delayDays;
 
             sim2.shipments.spawnShipmentWithRoute(
               window._routeDeployOrigin,
@@ -234,12 +312,16 @@ export class SandboxDashboard {
             );
 
             // Visual feedback
-            btn.innerHTML = '✅ Deployed!';
-            btn.style.color = '#10b981';
-            btn.disabled = true;
-            setTimeout(() => { btn.innerHTML = '🚀 Deploy This Route'; btn.style.color = ''; btn.disabled = false; }, 2000);
+            const depLabel = delayDays > 0
+              ? `⏳ Scheduled +${(delayDays*24).toFixed(1)}h`
+              : '✅ Deployed!';
+            btn.innerHTML   = depLabel;
+            btn.style.color = delayDays > 0 ? '#a855f7' : '#10b981';
+            btn.disabled    = true;
+            setTimeout(() => { btn.innerHTML = '🚀 Deploy This Route'; btn.style.color = ''; btn.disabled = false; }, 2500);
           });
         });
+
       }, 50);
     });
 

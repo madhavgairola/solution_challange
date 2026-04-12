@@ -95,6 +95,24 @@ export class ShipmentEngine {
     this._updateShipmentPosition(ship);
     this.shipments.set(id, ship);
     console.log(`[SPAWN] ${ship.cargoEmoji} ${id} | ${cargoType.toUpperCase()} P${priority} | ${sourceId} → ${destId} | ETA: ${expectedTotalDays.toFixed(1)}d`);
+
+    // ── Scheduled departure: user asked to defer this ship ────────────────
+    // options.scheduledDepartureDay is in sim days relative to THIS ship's epoch (totalTimeSpent=0).
+    if (options.scheduledDepartureDay && options.scheduledDepartureDay > 0) {
+      const depDay = options.scheduledDepartureDay;
+      ship.status             = 'port_wait';
+      ship.scheduledDeparture = depDay;
+      ship.waitDaysRemaining  = depDay;
+      ship.waitingAt          = sourceId;
+      ship.waitingReason      = `Scheduled departure in ${(depDay * 24).toFixed(1)} sim hrs`;
+      // Mark the first segment as waiting too so the Schedule Board shows it correctly
+      if (ship.segments && ship.segments.length > 0) {
+        ship.segments[0].status         = 'port_wait';
+        ship.segments[0].actualDeparture = null; // will be set when departure is reached
+      }
+      console.log(`[SCHEDULE] ${ship.cargoEmoji} ${id} queued — departs in ${(depDay*24).toFixed(1)} sim hrs (${(depDay*30).toFixed(0)}s real at 1x speed)`);
+    }
+
     return ship;
   }
 
