@@ -8,10 +8,11 @@ export class TelemetryPanel {
     // Set position and styling here for the container to stay at bottom.
     Object.assign(this.container.style, {
       position: 'fixed',
-      bottom: '12px',
-      left: '12px',
-      right: '12px',
-      height: '140px',
+      bottom: '20px',
+      left: '68px', /* aligns with dashboard mount */
+      maxWidth: '30%',
+      height: 'auto',
+      maxHeight: '200px',
       zIndex: '1500',
       display: 'flex',
       gap: '12px',
@@ -19,7 +20,7 @@ export class TelemetryPanel {
       overflowX: 'auto',
       overflowY: 'hidden',
       pointerEvents: 'all',
-      scrollbarWidth: 'none', // hide scrollbar Firefox
+      scrollbarWidth: 'none',
     });
     // hide scrollbar Webkit hack will be in css
     

@@ -5,7 +5,7 @@ window.IndiaBoundaryCorrector.extendLeaflet(L);
 
 export class MapRenderer {
   constructor(containerId) {
-    this.map = L.map(containerId).setView([20, 0], 2); // Center world map
+    this.map = L.map(containerId, { zoomControl: false }).setView([20, 0], 2); // Center world map
 
     // Add CartoDB Dark Matter tile layer mapped to official boundaries
     L.tileLayer.indiaBoundaryCorrected('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {

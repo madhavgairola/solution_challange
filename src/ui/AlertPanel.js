@@ -29,9 +29,10 @@ export class AlertPanel {
     this.el.id = 'alert-panel';
     Object.assign(this.el.style, {
       position:       'fixed',
-      top:            '110px',
-      right:          '16px',
-      width:          '305px',
+      bottom:         '16px',
+      left:           '50%',
+      transform:      'translateX(-50%)',
+      width:          '440px',
       zIndex:         '3000',
       fontFamily:     "'Inter', Roboto, sans-serif",
       pointerEvents:  'all',
