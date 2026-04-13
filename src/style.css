@@ -369,13 +369,56 @@ h1 {
   background-color: #0b0f19;
 }
 
-/* Port Sidebar Styles — Always-visible LEFT panel */
-.port-sidebar {
+/* ═══════════════════════════════════════════════════════════════════
+   PORT SIDEBAR — Retractable LEFT panel (Global Topologies)
+   ═══════════════════════════════════════════════════════════════════ */
+.port-sidebar-wrapper {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 260px;
+  z-index: 2000;
+  display: flex;
+  pointer-events: none;
+}
+.port-sidebar-wrapper > * {
+  pointer-events: all;
+}
+
+/* Vertical tab handle — always visible */
+.port-sidebar-tab {
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 6px;
+  background: rgba(11, 15, 12, 0.88);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid var(--glass-border);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.port-sidebar-tab:hover {
+  color: var(--accent);
+  background: rgba(11, 15, 12, 0.95);
+}
+.port-sidebar-tab svg {
+  transform: rotate(90deg);
+}
+.port-sidebar-tab-label {
+  writing-mode: vertical-lr;
+}
+
+/* Panel content — hidden by default, slides in */
+.port-sidebar {
+  width: 240px;
   background: rgba(11, 15, 12, 0.88);
   backdrop-filter: blur(16px);
   border-right: 1px solid var(--glass-border);
@@ -383,7 +426,38 @@ h1 {
   flex-direction: column;
   overflow-y: auto;
   color: var(--text-primary);
-  z-index: 2000;
+  transform: translateX(-100%);
+  opacity: 0;
+  width: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.port-sidebar-wrapper.open .port-sidebar {
+  transform: translateX(0);
+  opacity: 1;
+  width: 240px;
+}
+
+.port-sidebar-wrapper.open .port-sidebar-tab {
+  border-right: none;
+}
+
+/* Collapse chevron in header */
+.port-sidebar-collapse-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.port-sidebar-collapse-btn:hover {
+  color: var(--accent);
+  background: rgba(62, 207, 142, 0.05);
 }
 
 /* Home button pinned to bottom of PortSidebar */
@@ -393,7 +467,7 @@ h1 {
   justify-content: center;
   gap: 8px;
   padding: 12px 16px;
-  margin: auto 12px 12px 12px; /* push to bottom */
+  margin: auto 12px 12px 12px;
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   cursor: pointer;
@@ -407,6 +481,35 @@ h1 {
   color: var(--accent);
   border-color: var(--accent);
   background: rgba(62, 207, 142, 0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DRAWER TOGGLE — floating button to reopen right panel
+   ═══════════════════════════════════════════════════════════════════ */
+.drawer-toggle-btn {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 2400;
+  width: 28px;
+  height: 48px;
+  background: rgba(11, 15, 12, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-right: none;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.drawer-toggle-btn:hover {
+  color: var(--accent);
+  background: rgba(11, 15, 12, 0.95);
+  width: 32px;
 }
 
 .sidebar-header {
@@ -697,6 +800,29 @@ h1 {
   border-color: rgba(255, 93, 93, 0.2);
   background: rgba(255, 93, 93, 0.05);
 }
+
+/* Tab switcher in right panel header */
+.right-panel-tab {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+.right-panel-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+.right-panel-tab.active {
+  color: var(--accent);
+  border-color: rgba(62, 207, 142, 0.2);
+  background: rgba(62, 207, 142, 0.05);
+}
+
 .right-panel-body {
   flex: 1;
   overflow-y: auto;

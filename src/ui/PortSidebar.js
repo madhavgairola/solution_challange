@@ -1,16 +1,42 @@
 import { PORTS, PORT_GRAPH } from '../data/network.js';
 
 /**
- * PortSidebar — Always-visible left panel showing Global Topologies.
- * 
- * No toggle button. Always open. Home button is injected by NavSidebar.
+ * PortSidebar — Retractable left panel showing Global Topologies.
+ *
+ * Collapsed by default — shows a thin vertical tab handle.
+ * Click handle or press toggle to expand/collapse.
+ * Home button is injected at the bottom by NavSidebar.
  */
 export class PortSidebar {
   constructor(mapRenderer) {
     this.mapRenderer = mapRenderer;
+    this.isOpen = false;
+
+    // Outer wrapper that contains the tab handle + panel
+    this.wrapper = document.createElement('div');
+    this.wrapper.className = 'port-sidebar-wrapper';
+
+    // The tab handle (visible when collapsed)
+    this.tabHandle = document.createElement('div');
+    this.tabHandle.className = 'port-sidebar-tab';
+    this.tabHandle.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+      <span class="port-sidebar-tab-label">Topologies</span>
+    `;
+    this.tabHandle.addEventListener('click', () => this.toggle());
+    this.wrapper.appendChild(this.tabHandle);
+
+    // The actual sidebar panel
     this.container = document.createElement('div');
     this.container.className = 'port-sidebar';
-    
+    this.wrapper.appendChild(this.container);
+
+    document.body.appendChild(this.wrapper);
+
     // Group PORTS by region
     this.groups = {};
     PORTS.forEach(p => {
@@ -18,11 +44,17 @@ export class PortSidebar {
       this.groups[p.region].push(p);
     });
 
-    document.body.appendChild(this.container);
     this.renderOverview();
   }
 
+  toggle() {
+    this.isOpen = !this.isOpen;
+    this.wrapper.classList.toggle('open', this.isOpen);
+  }
+
   showPortDetails(portId) {
+    if (!this.isOpen) this.toggle();
+
     const port = PORTS.find(p => p.id === portId);
     if (!port) return;
 
@@ -62,32 +94,25 @@ export class PortSidebar {
               </svg>
               <span class="route-dest">${r.to}</span>
             </div>
-            <div class="route-time">
-              ${r.time} days
-            </div>
+            <div class="route-time">${r.time} days</div>
           </li>
         `;
       });
     }
 
-    html += `
-        </ul>
-      </div>
-    `;
+    html += `</ul></div>`;
 
-    // Preserve the home button if it exists
     const homeBtn = this.container.querySelector('.port-sidebar-home-btn');
     this.container.innerHTML = html;
     if (homeBtn) this.container.appendChild(homeBtn);
-    
+
     document.getElementById('sidebar-back-btn').onclick = () => this.renderOverview();
-    
+
     const routeItems = this.container.querySelectorAll('.route-item');
     routeItems.forEach(item => {
-      item.addEventListener('click', (e) => {
+      item.addEventListener('click', () => {
         routeItems.forEach(i => i.classList.remove('selected-route'));
         item.classList.add('selected-route');
-        
         if (this.mapRenderer) {
           this.mapRenderer.setActivePort(portId, item.getAttribute('data-dest'));
         }
@@ -102,7 +127,14 @@ export class PortSidebar {
 
     let html = `
       <div class="sidebar-header">
-        <h2 class="panel-title">Global Topologies</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+          <h2 class="panel-title">Global Topologies</h2>
+          <div class="port-sidebar-collapse-btn" id="collapse-topologies">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </div>
+        </div>
       </div>
       <div class="sidebar-content accordion-view">
     `;
@@ -112,29 +144,27 @@ export class PortSidebar {
         <div class="region-group">
           <div class="region-title">${region}</div>
           <ul class="port-list">`;
-      
+
       portsList.forEach(p => {
-        html += `
-            <li class="port-link" data-port="${p.id}">
-              ${p.name}
-            </li>
-        `;
+        html += `<li class="port-link" data-port="${p.id}">${p.name}</li>`;
       });
 
-      html += `
-          </ul>
-        </div>
-      `;
+      html += `</ul></div>`;
     }
 
     html += `</div>`;
 
-    // Preserve the home button if it exists
     const homeBtn = this.container.querySelector('.port-sidebar-home-btn');
     this.container.innerHTML = html;
     if (homeBtn) this.container.appendChild(homeBtn);
 
-    // Attach click listeners to individual port listings
+    // Collapse button
+    const collapseBtn = this.container.querySelector('#collapse-topologies');
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', () => this.toggle());
+    }
+
+    // Port click listeners
     const links = this.container.querySelectorAll('.port-link');
     links.forEach(link => {
       link.addEventListener('click', (e) => {
