@@ -28,6 +28,24 @@ html, body {
   letter-spacing: 0.02em;
 }
 
+/* ───────────────────────────────────────────────────────── 
+   GLOBAL CUSTOM SCROLLBARS
+   ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 .glass-panel {
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
@@ -631,6 +649,25 @@ h1 {
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 10px 0;
+}
+
+.floating-mount-panel {
+  position: absolute;
+  top: 76px;
+  left: 76px; /* perfectly hugs the nav-sidebar */
+  bottom: 20px; /* stretch to bottom with nice padding */
+  width: 340px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  display: none; /* toggled via JS */
+  flex-direction: column;
+  z-index: 1500;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .nav-header { display: none; }

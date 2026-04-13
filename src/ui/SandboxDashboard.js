@@ -29,59 +29,68 @@ export class SandboxDashboard {
         <div class="targeted-spawn-box" id="route-planner-box">
            <div style="font-size:11px; color:#3ecf8e; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">🗺️ Route Planner</div>
            
-           <label>Origin Port:</label>
-           <select id="origin-select" class="dash-select">
-              <option value="" disabled selected>-- Select Origin --</option>
-              ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-           </select>
+           <div style="display:flex; gap:10px; margin-bottom:8px;">
+             <div style="flex:1;">
+               <label style="font-size:10px;">Origin:</label>
+               <select id="origin-select" class="dash-select" style="padding:4px; font-size:11px;">
+                  <option value="" disabled selected>-- Origin --</option>
+                  ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+               </select>
+             </div>
+             <div style="flex:1;">
+               <label style="font-size:10px;">Destination:</label>
+               <select id="dest-select" class="dash-select" style="padding:4px; font-size:11px;">
+                  <option value="" disabled selected>-- Dest --</option>
+                  ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+               </select>
+             </div>
+           </div>
 
-           <label style="margin-top:8px;">Destination Port:</label>
-           <select id="dest-select" class="dash-select">
-              <option value="" disabled selected>-- Select Destination --</option>
-              ${PORTS.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-           </select>
-
-           <label style="margin-top:8px;">Cargo Type:</label>
-           <select id="cargo-type-select" class="dash-select">
-              <option value="">🎲 Random</option>
-              <option value="general">📦 General Cargo</option>
-              <option value="perishable">🥩 Perishable (Speed-first)</option>
-              <option value="oil">🛢️ Oil / Hazmat (Risk-averse)</option>
-              <option value="high_priority">⚡ High Priority (Urgent)</option>
-           </select>
-
-           <label style="margin-top:8px;">Priority Level:</label>
-           <select id="priority-select" class="dash-select">
-              <option value="">🎲 Random</option>
-              <option value="1">1 — Economy (Cheapest)</option>
-              <option value="2">2 — Standard</option>
-              <option value="3">3 — Normal</option>
-              <option value="4">4 — Expedited</option>
-              <option value="5">5 — Critical (Fastest)</option>
-           </select>
+           <div style="display:flex; gap:10px; margin-bottom:8px;">
+             <div style="flex:1;">
+               <label style="font-size:10px;">Cargo Type:</label>
+               <select id="cargo-type-select" class="dash-select" style="padding:4px; font-size:11px;">
+                  <option value="">🎲 Random</option>
+                  <option value="general">📦 General</option>
+                  <option value="perishable">🥩 Speed-first</option>
+                  <option value="oil">🛢️ Risk-averse</option>
+                  <option value="high_priority">⚡ Urgent</option>
+               </select>
+             </div>
+             <div style="flex:1;">
+               <label style="font-size:10px;">Priority:</label>
+               <select id="priority-select" class="dash-select" style="padding:4px; font-size:11px;">
+                  <option value="">🎲 Random</option>
+                  <option value="1">1 — Economy</option>
+                  <option value="3" selected>3 — Normal</option>
+                  <option value="5">5 — Critical</option>
+               </select>
+             </div>
+           </div>
 
            <!-- Departure Time Scheduler -->
-           <label style="margin-top:10px;">Departure Time:</label>
-           <div style="font-size:10px; color:#475569; margin-bottom:5px;" id="sim-now-label">🕒 Sim clock: loading...</div>
-           <div style="display:flex; gap:12px; margin-bottom:6px;">
-             <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:#cbd5e1; cursor:pointer;">
-               <input type="radio" name="depart-mode" id="depart-now" value="now" checked> 🟢 Now
-             </label>
-             <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:#cbd5e1; cursor:pointer;">
-               <input type="radio" name="depart-mode" id="depart-sched" value="scheduled"> ⏱️ Schedule
-             </label>
-           </div>
-           <div id="depart-config" style="display:none; background:rgba(0,0,0,0.25); border-radius:6px; padding:8px; margin-bottom:4px;">
-             <div style="font-size:10px; color:#475569; margin-bottom:5px;">Depart in (sim time):</div>
-             <div style="display:flex; align-items:center; gap:6px;">
-               <input type="number" id="depart-sim-hours" min="0" max="999" value="6"
-                 style="width:54px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:5px; padding:4px 6px; font-size:12px;">
-               <span style="font-size:10px; color:#64748b;">sim hrs</span>
-               <input type="number" id="depart-sim-mins" min="0" max="55" step="5" value="0"
-                 style="width:44px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:5px; padding:4px 6px; font-size:12px;">
-               <span style="font-size:10px; color:#64748b;">sim min</span>
-             </div>
-             <div style="font-size:10px; color:#3ecf8e; margin-top:5px;" id="depart-real-preview">≈ real time: —</div>
+           <div style="background:rgba(0,0,0,0.15); border-radius:6px; padding:6px; margin-bottom:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                 <label style="font-size:10px; margin:0;">Departure:</label>
+                 <div style="font-size:9px; color:#475569;" id="sim-now-label">🕒 Sim clock: loading...</div>
+              </div>
+              <div style="display:flex; gap:12px; margin-top:4px;">
+                <label style="display:flex; align-items:center; gap:4px; font-size:10px; color:#cbd5e1; cursor:pointer;">
+                  <input type="radio" name="depart-mode" id="depart-now" value="now" checked> 🟢 Now
+                </label>
+                <label style="display:flex; align-items:center; gap:4px; font-size:10px; color:#cbd5e1; cursor:pointer;">
+                  <input type="radio" name="depart-mode" id="depart-sched" value="scheduled"> ⏱️ Schedule
+                </label>
+              </div>
+              <div id="depart-config" style="display:none; margin-top:6px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="number" id="depart-sim-hours" min="0" max="999" value="6" style="width:40px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:4px; padding:2px; font-size:10px;">
+                  <span style="font-size:9px; color:#64748b;">hrs</span>
+                  <input type="number" id="depart-sim-mins" min="0" max="55" step="5" value="0" style="width:36px; background:#0f172a; border:1px solid rgba(255,255,255,0.1); color:#e2e8f0; border-radius:4px; padding:2px; font-size:10px;">
+                  <span style="font-size:9px; color:#64748b;">min</span>
+                  <span style="font-size:9px; color:#3ecf8e; margin-left:auto;" id="depart-real-preview">≈ —</span>
+                </div>
+              </div>
            </div>
 
            <button id="btn-calc-routes" class="dashboard-btn spawn-target" style="margin-top:6px;">
@@ -92,20 +101,20 @@ export class SandboxDashboard {
            <div id="route-results-panel" style="margin-top:8px;"></div>
         </div>
 
-        <div class="targeted-spawn-box" style="margin-top: 10px;">
-           <label>Simulation Clock Speed:</label>
-           <input type="range" id="sim-speed-slider" min="0" max="5" step="0.1" value="1" style="width: 100%;">
-           <div style="display: flex; justify-content: space-between; font-size: 10px; color:#94a3b8;">
-             <span>Paused</span>
+        <div class="targeted-spawn-box" style="margin-top: 10px; padding: 6px 12px;">
+           <div style="display: flex; justify-content: space-between; font-size: 10px; color:#94a3b8; margin-bottom:4px;">
+             <span>Simulation Speed:</span>
              <span id="speed-display">1.0x</span>
-             <span>Max Warp</span>
            </div>
+           <input type="range" id="sim-speed-slider" min="0" max="5" step="0.1" value="1" style="width: 100%;">
         </div>
 
-        <button id="btn-spawn" class="dashboard-btn">🚢 Spawn Random Shipment</button>
-        <button id="btn-suez" class="dashboard-btn danger">🚨 Block Suez Canal</button>
-        <button id="btn-deploy-custom" class="dashboard-btn warning" style="border: 1px solid #f59e0b;">⚙️ Deploy Custom Anomaly</button>
-        <button id="btn-clear" class="dashboard-btn clear">♻️ Clear All Geometries</button>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+          <button id="btn-spawn" class="dashboard-btn" style="padding:6px; font-size:10px; text-align:center;">🚢 Random Ship</button>
+          <button id="btn-suez" class="dashboard-btn danger" style="padding:6px; font-size:10px; text-align:center;">🚨 Block Suez</button>
+          <button id="btn-deploy-custom" class="dashboard-btn warning" style="padding:6px; font-size:10px; border: 1px solid #f59e0b; text-align:center;">🎯 Custom Event</button>
+          <button id="btn-clear" class="dashboard-btn clear" style="padding:6px; font-size:10px; text-align:center;">♻️ Clear Map</button>
+        </div>
         
         <div style="height:1px; background:rgba(255,255,255,0.1); margin:12px 0;"></div>
         <button id="btn-demo-cascade" class="dashboard-btn" style="background: linear-gradient(135deg, #6366f1, #a855f7); color: white; border: none; font-weight: 700;">

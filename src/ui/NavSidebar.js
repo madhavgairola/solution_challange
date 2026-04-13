@@ -44,18 +44,7 @@ export class NavSidebar {
 
     // Extract mount point to a separate floating panel
     this.mountPanel = document.createElement('div');
-    this.mountPanel.className = 'glass-panel';
-    Object.assign(this.mountPanel.style, {
-      position: 'fixed',
-      top: '90px',
-      left: '90px',
-      width: '320px',
-      maxHeight: '80vh',
-      overflowY: 'auto',
-      zIndex: '1500',
-      display: 'none', // Hidden until toggled
-      flexDirection: 'column',
-    });
+    this.mountPanel.className = 'floating-mount-panel';
     this.mountPanel.innerHTML = `<div id="dashboard-mount-point" class="dashboard-mount"></div>`;
     document.body.appendChild(this.mountPanel);
   }
