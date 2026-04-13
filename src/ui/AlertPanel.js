@@ -6,14 +6,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TYPE_CFG = {
-  blockage:          { icon: '🚨', color: '#f43f5e', label: 'BLOCKAGE'  },
-  risk:              { icon: '⚠️', color: '#fbbf24', label: 'RISK'      },
-  cascade:           { icon: '⚡', color: '#fb923c', label: 'CASCADE'   },
-  reroute:           { icon: '🔁', color: '#38bdf8', label: 'REROUTED'  },
-  missed_connection: { icon: '❌', color: '#f97316', label: 'MISSED'    },
-  resolved:          { icon: '✅', color: '#10b981', label: 'RESOLVED'  },
-  info:              { icon: 'ℹ️',  color: '#64748b', label: 'INFO'      },
-  decision:          { icon: '🧠', color: '#a855f7', label: 'DECISION'  },
+  blockage:          { color: '#f43f5e', label: 'BLOCKAGE'  },
+  risk:              { color: '#fbbf24', label: 'RISK'      },
+  cascade:           { color: '#fb923c', label: 'CASCADE'   },
+  reroute:           { color: '#38bdf8', label: 'REROUTED'  },
+  missed_connection: { color: '#f97316', label: 'MISSED'    },
+  resolved:          { color: '#10b981', label: 'RESOLVED'  },
+  info:              { color: '#64748b', label: 'INFO'      },
+  decision:          { color: '#a855f7', label: 'DECISION'  },
 };
 
 export class AlertPanel {
@@ -53,51 +53,50 @@ export class AlertPanel {
       const simDay  = typeof a.simDay === 'number' ? `Day ${a.simDay.toFixed(1)}` : '';
       
       let extra   = a.details?.savedDays > 0.05
-        ? `<div style="color:#10b981;font-size:10px;margin-top:2px;">💾 Saved ${a.details.savedDays.toFixed(1)}d</div>`
+        ? `<div style="color:#10b981;font-size:10px;margin-top:4px;">+ Saved ${a.details.savedDays.toFixed(1)}d</div>`
         : a.details?.delayDays > 0.05
-          ? `<div style="color:#fbbf24;font-size:10px;margin-top:2px;">+${a.details.delayDays.toFixed(1)}d delay predicted</div>`
+          ? `<div style="color:#fbbf24;font-size:10px;margin-top:4px;">- Predicted ${a.details.delayDays.toFixed(1)}d delay</div>`
           : '';
 
       const reasonLine = a.details?.trigger
-        ? `<div style="font-size:9px;color:#475569;margin-top:2px;font-style:italic;">${a.details.trigger}</div>`
+        ? `<div style="font-size:9px;color:var(--text-muted);margin-top:2px;">[CAUSE: ${a.details.trigger.toUpperCase()}]</div>`
         : '';
 
       if (a.type === 'decision' && a.details) {
          extra = `
-         <div style="background:rgba(0,0,0,0.2); border-radius:4px; padding:6px; margin-top:6px;">
-            <div style="font-size:10px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">Options Evaluated:</div>
-            <ul style="margin:0; padding-left:14px; font-size:10px; color:#cbd5e1; line-height:1.4;">
+         <div style="background:var(--bg-primary); border:1px solid var(--glass-border); border-radius:4px; padding:6px; margin-top:6px;">
+            <div style="font-size:9px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; font-weight:600;">Options Evaluated:</div>
+            <ul style="margin:0; padding-left:14px; font-size:10px; color:#e2e8f0; line-height:1.4;">
                <li>Go Through: ${a.details.throughTime === Infinity ? 'Blocked (Cross-Infinity)' : `${a.details.throughTime.toFixed(1)}d total time`}</li>
                <li>Go Around: ${a.details.aroundTime === Infinity ? 'Unviable/Blocked' : `${a.details.aroundTime.toFixed(1)}d total time`}</li>
                <li>Wait: ${a.details.waitTime === Infinity ? 'Indefinite' : `${a.details.waitTime.toFixed(1)}d total time`}</li>
             </ul>
-            <div style="margin-top:6px; font-size:11px;">
-               <span style="color:#10b981; font-weight:700;">✅ Selected: ${a.details.decision}</span>
+            <div style="margin-top:6px; font-size:10px;">
+               <span style="color:#10b981; font-weight:600;">SELECTED: ${a.details.decision.toUpperCase()}</span>
             </div>
-            <div style="margin-top:2px; font-size:10px; color:var(--text-muted);">
+            <div style="margin-top:2px; font-size:9px; color:var(--text-muted);">
                ${a.details.reason}
             </div>
          </div>
-         ${a.details.savedTime ? `<div style="color:#10b981;font-size:10px;margin-top:4px;font-weight:700;">💾 Action vs Baseline: Saved ${a.details.savedTime.toFixed(1)} days</div>` : ''}
+         ${a.details.savedTime ? `<div style="color:#10b981;font-size:10px;margin-top:4px;font-weight:600;">Action vs Baseline: Saved ${a.details.savedTime.toFixed(1)} days</div>` : ''}
          `;
       }
 
       return `
         <div class="alert-card" style="
-          background: var(--bg-glass);
+          background: var(--bg-secondary);
           border: 1px solid var(--glass-border);
           border-left: 3px solid ${cfg.color};
-          border-radius: 8px;
-          padding: 10px 12px;
+          border-radius: 6px;
+          padding: 8px 10px;
           margin-bottom: 6px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          transition: transform 0.15s ease;
           animation: slideInRight 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-        " onmouseover="this.style.transform='translateX(-4px) scale(1.02)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'">
+        " onmouseover="this.style.transform='translateX(-2px)'" onmouseout="this.style.transform='none'">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-size:14px; text-shadow: 0 0 8px ${cfg.color}55;">${cfg.icon}</span>
-              <span style="font-size:10px;color:${cfg.color};font-weight:700;letter-spacing:0.5px;">${cfg.label}</span>
+              <div style="width:6px; height:6px; border-radius:50%; background:${cfg.color}; box-shadow: 0 0 6px ${cfg.color};"></div>
+              <span style="font-size:10px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">${cfg.label}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:10px;color:var(--text-muted);">${simDay}</span>
@@ -110,25 +109,27 @@ export class AlertPanel {
     }).join('');
 
     const emptyState = `
-      <div style="text-align:center;color:var(--text-muted);font-size:12px;padding:24px 8px;">
-        🛡️ System stable. No active alerts.
+      <div style="text-align:center;color:var(--text-muted);font-size:11px;padding:24px 8px;">
+        System Nominal. Awaiting Events.
       </div>`;
 
     this.el.innerHTML = `
       <div class="glass-panel" style="
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
+        background: var(--bg-primary);
       ">
         <!-- Header -->
         <div id="alert-toggle" style="
-          padding: 10px 14px;
+          padding: 8px 12px;
           display: flex; justify-content: space-between; align-items: center;
           border-bottom: 1px solid var(--glass-border);
           cursor: pointer; user-select: none;
-          background: rgba(0,0,0,0.1);
+          background: var(--bg-secondary);
         ">
           <div style="display:flex;align-items:center;">
-            <span style="font-size:12px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">⚡ INTELLIGENCE FEED</span>
+            <div style="width:4px; height:4px; border-radius:50%; background:var(--accent); margin-right:6px; box-shadow: 0 0 4px var(--accent);"></div>
+            <span style="font-size:11px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">INTELLIGENCE FEED</span>
             ${badge}
           </div>
           <span style="font-size:10px;color:var(--text-muted);">${this.collapsed ? '▼ SHOW' : '▲ HIDE'}</span>

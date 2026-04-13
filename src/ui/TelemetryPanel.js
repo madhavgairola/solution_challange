@@ -62,25 +62,25 @@ export class TelemetryPanel {
         const isCurrent   = idx === ship.currentEdgeIndex && ship.status === 'moving';
         const pred        = predMap.get(seg.from + '-' + seg.to);
 
-        let icon  = '📅'; let color = 'var(--text-muted)'; let delayText = '';
+        let dotColor = 'var(--text-muted)'; let delayText = '';
 
         if (isCompleted) {
           const d = seg.delay;
-          if (seg.missedConnection) { icon = '⚠️'; color = 'var(--danger)'; delayText = `+${d.toFixed(1)}d`; }
-          else if (d > 0.1)         { icon = '🕒'; color = 'var(--warning)'; delayText = `+${d.toFixed(1)}d`; }
-          else                      { icon = '✅'; color = 'var(--accent)'; }
+          if (seg.missedConnection) { dotColor = 'var(--danger)'; delayText = `+${d.toFixed(1)}d`; }
+          else if (d > 0.1)         { dotColor = 'var(--warning)'; delayText = `+${d.toFixed(1)}d`; }
+          else                      { dotColor = 'var(--accent)'; }
         } else if (seg.status === 'port_wait') {
-          icon = '⛳'; color = 'var(--info)';
+          dotColor = 'var(--info)';
           if (pred && pred.scheduleWait > 0.05) delayText = `${pred.scheduleWait.toFixed(1)}d`;
         } else if (isCurrent) {
-          icon = '🚢'; color = 'var(--info)';
+          dotColor = 'var(--info)';
           if (pred && pred.predictedDelay > 0.1) delayText = `~+${pred.predictedDelay.toFixed(1)}d`;
         } else if (pred) {
-          if (pred.willMissConnection) { icon = '⚡'; color = '#f97316'; delayText = `~+${pred.predictedDelay.toFixed(1)}d`; }
-          else if (pred.predictedDelay > 0.1) { icon = '📅'; color = 'var(--warning)'; delayText = `~+${pred.predictedDelay.toFixed(1)}d`; }
+          if (pred.willMissConnection) { dotColor = '#f97316'; delayText = `~+${pred.predictedDelay.toFixed(1)}d`; }
+          else if (pred.predictedDelay > 0.1) { dotColor = 'var(--warning)'; delayText = `~+${pred.predictedDelay.toFixed(1)}d`; }
         }
 
-        return `<span title="${seg.from}→${seg.to}" style="color:${color}; font-size:9px; white-space:nowrap;">${icon}${delayText ? '<sub style="font-size:8px">'+delayText+'</sub>' : ''}</span>`;
+        return `<div title="${seg.from}→${seg.to}" style="display:flex;align-items:center;gap:4px;color:var(--text-muted);font-size:9px;white-space:nowrap;"><div style="width:4px;height:4px;border-radius:50%;background:${dotColor};"></div>${delayText ? '<span style="font-size:8px;">'+delayText+'</span>' : ''}</div>`;
       });
 
       return `
@@ -122,14 +122,21 @@ export class TelemetryPanel {
             min-width: 240px; 
             max-width: 240px;
             padding: 12px; 
-            border-left: 3px solid ${statusColor};
+            background: var(--bg-secondary);
+            border: 1px solid var(--glass-border);
+            border-top: 3px solid ${statusColor};
+            border-radius: 6px;
             display: flex;
             flex-direction: column;
             cursor: pointer;
-          " onmouseover="this.style.boxShadow='0 8px 24px ${statusColor}33'; this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='0 8px 32px rgba(0,0,0,0.3)'; this.style.transform='translateY(0)'">
+            transition: transform 0.15s ease;
+          " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 6px;">
-                <div style="font-size:12px; font-weight:600; color:var(--text-primary);"><span style="text-shadow: 0 0 6px ${statusColor}77;">${ship.cargoEmoji || '🚢'}</span> ${ship.id}</div>
-                <div style="font-size:9px; font-weight:700; color:${statusColor}; letter-spacing:0.5px;">${displayStatus}</div>
+                <div style="font-size:12px; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                  <div style="width:6px; height:6px; border-radius:50%; background:${statusColor}; box-shadow: 0 0 6px ${statusColor};"></div>
+                  ${ship.id}
+                </div>
+                <div style="font-size:9px; font-weight:600; color:var(--text-muted); letter-spacing:0.5px;">${displayStatus}</div>
              </div>
              
              <div style="font-size:10px; color:var(--text-secondary); margin-bottom:8px; line-height: 1.4;">

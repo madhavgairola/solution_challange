@@ -33,43 +33,44 @@ export class KPIBar {
     const daysSaved     = stats.totalDaysSaved || 0;
 
     const basePill = `
-      class="glass-panel" 
       style="
-        padding: 6px 14px; 
+        padding: 4px 12px; 
         display: flex; 
         align-items: center; 
         gap: 8px; 
-        border-radius: 999px;
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--glass-border);
       "
     `;
 
     this.el.innerHTML = `
       <div ${basePill}>
-        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Active</span>
-        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--info); margin-right:4px;">🚢</span>${activeShips}</span>
+        <span style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Active Fleet</span>
+        <span style="font-size:12px; color:var(--text-primary); font-weight:600;">${activeShips}</span>
       </div>
       
       <div ${basePill}>
-        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Handled</span>
-        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--danger); margin-right:4px;">🚨</span>${avoided}</span>
+        <span style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">Detected Anomalies</span>
+        <span style="font-size:12px; color:var(--text-primary); font-weight:600;">${avoided}</span>
       </div>
       
       <div ${basePill}>
-        <span style="font-size:10px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px;">Reroutes</span>
-        <span style="font-size:13px; color:var(--text-primary); font-weight:600;"><span style="color:var(--accent); margin-right:4px;">🔁</span>${countReroutes}</span>
+        <span style="font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px;">System Reroutes</span>
+        <span style="font-size:12px; color:var(--text-primary); font-weight:600;">${countReroutes}</span>
       </div>
       
-      <div class="glass-panel" style="
-        padding: 6px 14px; 
+      <div style="
+        padding: 4px 12px; 
         display: flex; 
         align-items: center; 
         gap: 8px; 
-        border-radius: 999px;
-        background: var(--accent-soft);
-        border: 1px solid var(--accent-glow);
+        border-radius: 6px;
+        background: rgba(62,207,142,0.1);
+        border: 1px solid rgba(62,207,142,0.2);
       ">
-        <span style="font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Delay Saved</span>
-        <span style="font-size:13px; color:var(--text-primary); font-weight:600;">${daysSaved.toFixed(1)}d</span>
+        <span style="font-size:10px; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px;">Global Days Saved</span>
+        <span style="font-size:12px; color:var(--text-primary); font-weight:600;">${daysSaved.toFixed(1)}d</span>
       </div>
     `;
   }
