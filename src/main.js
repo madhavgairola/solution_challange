@@ -6,6 +6,7 @@ import { ScheduleEngine } from './engine/ScheduleEngine';
 import { LiveIntelligenceAgent } from './engine/LiveIntelligenceAgent';
 import { ShipmentEngine } from './engine/ShipmentEngine';
 import { AlertEngine } from './engine/AlertEngine';
+import { RouteAnalyzer } from './engine/RouteAnalyzer';
 import { PORTS, ROUTES } from './data/network';
 
 import { MapRenderer } from './ui/MapRenderer';
@@ -34,6 +35,7 @@ const eventEngine    = new EventEngine(supplyChainGraph, mapRenderer);
 const scheduleEngine = new ScheduleEngine();
 const liveAgent      = new LiveIntelligenceAgent(eventEngine);
 const shipmentEngine = new ShipmentEngine(routingEngine, mapRenderer);
+const routeAnalyzer  = new RouteAnalyzer(routingEngine, eventEngine);
 shipmentEngine.alertEngine = alertEngine;
 
 // Mount globally for Simulator overrides
@@ -45,6 +47,7 @@ window.simulation = {
   shipments:    shipmentEngine,
   intelligence: liveAgent,
   alerts:       alertEngine,
+  analyzer:     routeAnalyzer,
 };
 
 // Load Nodes (Ports)

@@ -505,11 +505,8 @@ export class ShipmentEngine {
       }
 
       if (isPathBlocked || volatility > rerouteThreshold) {
-         // Run prediction engine before rerouting so judges can see future cascade delays
-         this._predictSegmentChain(ship);
-         console.warn(`[INTELLIGENCE PULSE] ${ship.cargoEmoji || ''} ${ship.id} [tol:${rerouteThreshold.toFixed(0)}%] volatility=${volatility.toFixed(0)}% Blocked=${isPathBlocked}`);
-         ship.status = 'rerouting';
-         this._handleReroute(ship);
+         // Run unified Anomaly-Aware Decision System
+         this._executeAnomalyDecision(ship, isPathBlocked);
       } else if (ship.status === 'waiting' && !isPathBlocked && volatility <= rerouteThreshold) {
          console.log(`[RECOVERY PULSE] ${ship.id} un-anchoring from WAIT mode.`);
          ship.waitingAt = null;
@@ -519,6 +516,113 @@ export class ShipmentEngine {
          this._handleReroute(ship);
       }
     });
+  }
+
+  _executeAnomalyDecision(ship, isPathBlocked) {
+     let currentNode = ship.progress >= 0.5 ? ship.currentEdge.destination : ship.currentEdge.source;
+     let targetNode = ship.originalDestination || ship.destination;
+
+     const weights = ship.preferences 
+       ? { w_time: ship.preferences.weightTime, w_cost: ship.preferences.weightCost, w_risk: ship.preferences.weightRisk }
+       : { w_time: 1, w_cost: 0.1, w_risk: 2.0 };
+
+     // 1. Compute THROUGH TIME (absorbing anomaly punishment)
+     let throughTime = 0;
+     let origBaseTime = 0;
+     if (isPathBlocked) {
+         throughTime = Infinity;
+     } else {
+         for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
+            throughTime += ship.pathEdges[i].dynamic_time;
+            origBaseTime += ship.pathEdges[i].base_time;
+         }
+     }
+
+     // 2. Compute AROUND TIME (Dynamic alternate bypass)
+     const routingResult = this.routingEngine._dijkstra(currentNode, targetNode, weights);
+     let aroundTime = routingResult ? routingResult.totalTime : Infinity;
+
+     // 3. Compute WAIT TIME (Base transit + clearance)
+     if (!isPathBlocked && origBaseTime === 0) {
+        for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
+           origBaseTime += ship.pathEdges[i].base_time;
+        }
+     }
+     let maxEventDuration = 0;
+     let relevantDisruption = 'Operational Disruption';
+     if (window.simulation && window.simulation.events) {
+        for (const ev of window.simulation.events.activeEvents.values()) {
+           if (ship.affectedByEvents.includes(ev.rule?.name || ev.id)) {
+              relevantDisruption = ev.rule?.name || ev.id;
+              if (ev.durationDays && ev.durationDays > 0) {
+                 maxEventDuration = Math.max(maxEventDuration, ev.durationDays);
+              }
+           }
+        }
+     }
+     let waitTime = maxEventDuration > 0 ? origBaseTime + maxEventDuration : Infinity;
+
+     // If already completely blockaded and waiting is not possible/known
+     if (throughTime === Infinity && aroundTime === Infinity && waitTime === Infinity) {
+        this._handleReroute(ship); // fallback logic handles safe harbor
+        return;
+     }
+
+     // CHOOSE OPTIMAL DECISION
+     const minTime = Math.min(throughTime, aroundTime, waitTime);
+     let decision = '';
+     let reason = '';
+
+     if (minTime === waitTime && waitTime < Infinity) {
+         decision = 'WAIT';
+         reason = 'Safest clearance time (Detour too long)';
+         console.log(`[PREDICTIVE AI] ${ship.cargoEmoji || ''} ${ship.id} elected to WAIT! (${waitTime.toFixed(1)}d wait < bypass/through)`);
+         ship.status = 'waiting';
+         ship.waitingAt = currentNode;
+         ship.waitingReason = `Predictive hold: waiting ${maxEventDuration.toFixed(1)}d for disruption to formally clear.`;
+         ship.lastRerouteTime = Date.now();
+     } else if (minTime === aroundTime && aroundTime !== Infinity) {
+         decision = 'GO AROUND';
+         reason = 'Shortest total time avoiding event';
+         ship.status = 'rerouting';
+         this._handleReroute(ship);
+     } else {
+         decision = 'GO THROUGH';
+         reason = 'Detour fundamentally longer than absorbing punishment';
+         // Ship keeps status = 'moving'
+         // We do not reroute. It eats the heavy edge dynamic_time.
+         ship.lastRerouteTime = Date.now();
+     }
+
+     // Calculate total saved
+     // Without system = throughTime
+     // With system = minTime
+     let saved = 0;
+     if (throughTime !== Infinity) {
+       saved = throughTime - minTime;
+     } else {
+       // if blocked, through time is catastrophic. estimate +14 days worst case for metric
+       saved = (origBaseTime + 14) - minTime;
+       if (saved < 0) saved = 0; // fallback bypass was huge
+     }
+
+     // Emit specific `decision` Intelligence alert 
+     if (this.alertEngine && saved >= 0.1) {
+         this.alertEngine.emit('decision', 'critical',
+           `⚠️ Disruption Identified: ${relevantDisruption}`,
+           {
+              shipId: ship.id,
+              cargo: ship.cargoEmoji || '🚢',
+              throughTime,
+              aroundTime,
+              waitTime,
+              decision,
+              reason,
+              savedTime: saved > 0.1 ? saved : null
+           },
+           `decision-${ship.id}-${Date.now()}`
+         );
+     }
   }
 
   _handleReroute(ship) {
@@ -539,35 +643,9 @@ export class ShipmentEngine {
 
      ship.rerouteCount = (ship.rerouteCount || 0) + 1;
 
-     // PREDICTIVE AI: Wait vs Bypass Evaluation
-     // BUG 3 FIX: Compare raw transit days (routingResult.totalTime) not the weighted score
-     if (routingResult && routingResult.totalTime > 0) {
-        const bypassTimeDays = routingResult.totalTime; // actual day count
-        
-        let origBaseTime = 0;
-        for (let i = ship.currentEdgeIndex; i < ship.pathEdges.length; i++) {
-           origBaseTime += ship.pathEdges[i].base_time;
-        }
+     // Predictive AI WAIT check is now logically unified inside _executeAnomalyDecision
+     // So we just execute the reroute here unconditionally.
 
-        let maxEventDuration = 0;
-        if (window.simulation && window.simulation.events) {
-           for (const ev of window.simulation.events.activeEvents.values()) {
-              if (ev.durationDays && ev.durationDays > 0) {
-                 maxEventDuration = Math.max(maxEventDuration, ev.durationDays);
-              }
-           }
-        }
-        
-        // Wait + remaining original path < cost of full bypass detour?
-        if (maxEventDuration > 0 && (origBaseTime + maxEventDuration < bypassTimeDays)) {
-             console.log(`[PREDICTIVE AI] ${ship.cargoEmoji || ''} ${ship.id} elected to WAIT! (${(origBaseTime + maxEventDuration).toFixed(1)}d wait < ${bypassTimeDays.toFixed(1)}d bypass)`);
-             ship.status = 'waiting';
-             ship.waitingAt = currentNode;
-             ship.waitingReason = `Predictive hold: storm expires in ${maxEventDuration.toFixed(1)}d, bypass costs ${bypassTimeDays.toFixed(1)}d`;
-             ship.lastRerouteTime = Date.now();
-             return;
-        }
-     }
 
      if (!routingResult || routingResult.edges.length === 0) {
         console.warn(`Shipment ${ship.id} destination ${targetNode} completely blockaded.`);

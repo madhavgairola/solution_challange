@@ -249,61 +249,90 @@ export class SandboxDashboard {
 
       resultsPanel.innerHTML = '<p style="color:#94a3b8; font-size:11px;">⏳ Computing routes...</p>';
 
-      // Run Yen\'s K-Shortest Paths (up to 3)
+      // Run Route Analyzer
       setTimeout(() => {
-        const routes = sim.routing.getKShortestPaths(o, d, weights, 3);
-        if (!routes || routes.length === 0) {
+        const analysis = sim.analyzer?.analyzeRouteRequest(o, d, weights);
+        if (!analysis || !analysis.recommendation) {
           resultsPanel.innerHTML = '<p style="color:#f43f5e; font-size:11px;">❌ No viable routes found between these ports.</p>';
           return;
         }
 
-        const ROUTE_LABELS = ['🥇 Optimal', '🥈 Alternative', '🥉 Alternate 2'];
-        const ROUTE_COLORS = ['#3ecf8e', '#fbbf24', '#fb923c'];
+        const { recommendation, alternatives } = analysis;
 
-        resultsPanel.innerHTML = routes.map((route, idx) => {
-          const hopChain = route.path.map(id => PORTS.find(p => p.id === id)?.name || id).join(' → ');
-          const totalDays = route.totalTime.toFixed(1);
-          const totalCost = route.totalCost ? Math.round(route.totalCost) : '—';
-          const totalRisk = route.totalRisk ? route.totalRisk.toFixed(2) : '—';
-          const hops = route.path.length - 1;
-          const color = ROUTE_COLORS[idx] || '#94a3b8';
-          const label = ROUTE_LABELS[idx] || `Route ${idx + 1}`;
+        // Render Recommendation Card
+        let html = `
+          <div class="route-analysis-card" style="margin-top:12px; background:var(--bg-secondary); border: 1px solid var(--glass-border); border-radius: 8px; overflow: hidden;">
+            <div style="background: rgba(62,207,142,0.1); border-bottom: 1px solid rgba(62,207,142,0.2); padding: 10px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:var(--accent); font-weight:700; font-size:12px;">✅ RECOMMENDED ROUTE</span>
+              <span style="color:#10b981; font-weight:700; font-size:12px;">${recommendation.totalTime.toFixed(1)} Days</span>
+            </div>
+            <div style="padding: 12px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:10px;">
+                <span style="color:#94a3b8;">Risk Level: <span style="color:${recommendation.riskLevel==='Low'?'#10b981':recommendation.riskLevel==='Medium'?'#fbbf24':'#ef4444'}">${recommendation.riskLevel}</span></span>
+                <span style="color:#94a3b8;">Predicted Delay: <span style="color:${recommendation.predictedDelay>0?'#f5a524':'#10b981'}">+${recommendation.predictedDelay.toFixed(1)} days</span></span>
+              </div>
+              
+              <div style="background:var(--bg-primary); padding:8px; border-radius:6px; margin-bottom:10px; border-left: 3px solid ${recommendation.weakPoints.length>0?'#ef4444':'#10b981'};">
+                 <div style="font-size:10px; color:#64748b; margin-bottom:4px; text-transform:uppercase;">Intel Explanation</div>
+                 <div style="font-size:11px; color:#e2e8f0;">${recommendation.explanation}</div>
+              </div>
+              
+              <div style="margin-bottom:10px;">
+                 <div style="font-size:10px; color:#64748b; margin-bottom:4px; text-transform:uppercase;">Reasoning</div>
+                 <ul style="margin:0; padding-left:14px; font-size:10px; color:#cbd5e1;">
+                   ${recommendation.recommendationReason.map(r => `<li>${r}</li>`).join('')}
+                 </ul>
+              </div>
 
-          return `
-            <div class="route-option-card" style="border-left: 3px solid ${color}; background: rgba(15,23,42,0.8); border-radius:6px; padding:10px; margin-bottom:8px;">
-              <div style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:${color}; font-size:11px; font-weight:700;">${label}</span>
-                <span style="color:#64748b; font-size:10px;">${hops} hop${hops !== 1 ? 's' : ''}</span>
-              </div>
-              <div style="font-size:10px; color:#cbd5e1; margin:5px 0; line-height:1.5;">${hopChain}</div>
-              <div style="display:flex; gap:10px; font-size:10px; color:#94a3b8; margin-bottom:8px;">
-                <span>⏱️ ${totalDays}d</span>
-                <span>💰 $${totalCost}</span>
-                <span>⚠️ Risk ${totalRisk}</span>
-              </div>
-              <button class="dashboard-btn" data-route-idx="${idx}" 
-                style="width:100%; padding:5px; font-size:11px; background: rgba(${idx===0?'62,207,142':'251,191,36'},0.1); border-color:${color}; color:${color};">
-                🚀 Deploy This Route
+              <button class="dashboard-btn spawn-target" id="deploy-rec-btn" style="width:100%; border-color:var(--accent); color:var(--accent); background:rgba(62,207,142,0.05);">
+                 🚀 Deploy Recommendation
               </button>
-            </div>`;
-        }).join('');
+            </div>
+          </div>
+        `;
 
-        // Store routes for deploy handlers
-        window._calculatedRoutes = routes;
+        // Render Alternatives
+        if (alternatives.length > 0) {
+          html += `<div style="font-size:11px; color:#94a3b8; margin:16px 0 8px 0; text-transform:uppercase; letter-spacing:1px;">Alternative Routes</div>`;
+          html += alternatives.map((alt, idx) => `
+            <div class="alt-route" style="background:var(--bg-glass); border-left: 3px solid #fbbf24; padding:8px; border-radius:6px; margin-bottom:8px;">
+               <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                 <span style="font-size:11px; color:#f8fafc; font-weight:600;">${alt.name}</span>
+                 <span style="font-size:11px; color:#fbbf24;">${alt.totalTime.toFixed(1)}d</span>
+               </div>
+               <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-bottom:6px;">
+                 <span>Risk: ${alt.riskLevel}</span>
+                 <span>Delay: +${alt.predictedDelay.toFixed(1)}d</span>
+               </div>
+               <div style="font-size:10px; color:#cbd5e1; margin-bottom:6px;">${alt.explanation}</div>
+               <button class="dashboard-btn" data-deploy-alt="${idx}" style="width:100%; font-size:10px; padding:4px;">
+                 Deploy Alternative
+               </button>
+            </div>
+          `).join('');
+        }
+
+        resultsPanel.innerHTML = html;
+
+        // Store analysis globally for deploy buttons
+        window._currentRouteAnalysis = analysis;
         window._routeDeployOrigin = o;
         window._routeDeployDest   = d;
 
+        // Visual Map Highlight Sync
+        sim.mapRenderer?.highlightWeakPoints(recommendation.weakPoints);
+        
+        const mapRoutesData = [recommendation.rawRoute, ...alternatives.map(a => a.rawRoute)];
+        sim.mapRenderer?.renderRouteHighlights(mapRoutesData, sim.graph);
+
         // Bind deploy buttons
-        resultsPanel.querySelectorAll('[data-route-idx]').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const idx         = parseInt(btn.dataset.routeIdx);
-            const chosenRoute = window._calculatedRoutes[idx];
-            const sim2        = window.simulation;
+        const deployBtnHandler = (btn, chosenRoute) => {
+            const sim2 = window.simulation;
             if (!sim2 || !sim2.shipments || !chosenRoute) return;
 
             const cargoType  = this.element.querySelector('#cargo-type-select').value;
             const priority   = parseInt(this.element.querySelector('#priority-select').value) || 0;
-            const delayDays  = getDepartDelayDays(); // 0 if "Now" is selected
+            const delayDays  = getDepartDelayDays();
 
             const opts = {};
             if (cargoType)    opts.cargoType            = cargoType;
@@ -313,18 +342,27 @@ export class SandboxDashboard {
             sim2.shipments.spawnShipmentWithRoute(
               window._routeDeployOrigin,
               window._routeDeployDest,
-              chosenRoute,
+              chosenRoute.rawRoute,
               opts
             );
 
-            // Visual feedback
-            const depLabel = delayDays > 0
-              ? `⏳ Scheduled +${(delayDays*24).toFixed(1)}h`
-              : '✅ Deployed!';
+            const depLabel = delayDays > 0 ? `⏳ Scheduled +${(delayDays*24).toFixed(1)}h` : '✅ Deployed!';
             btn.innerHTML   = depLabel;
+            btn.style.background = 'transparent';
             btn.style.color = delayDays > 0 ? '#a855f7' : '#10b981';
             btn.disabled    = true;
             setTimeout(() => { btn.innerHTML = '🚀 Deploy This Route'; btn.style.color = ''; btn.disabled = false; }, 2500);
+        };
+
+        const recBtn = resultsPanel.querySelector('#deploy-rec-btn');
+        if (recBtn) {
+           recBtn.addEventListener('click', () => deployBtnHandler(recBtn, window._currentRouteAnalysis.recommendation));
+        }
+
+        resultsPanel.querySelectorAll('[data-deploy-alt]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idx = parseInt(btn.dataset.deployAlt);
+            deployBtnHandler(btn, window._currentRouteAnalysis.alternatives[idx]);
           });
         });
 

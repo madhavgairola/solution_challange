@@ -13,6 +13,7 @@ const TYPE_CFG = {
   missed_connection: { icon: '❌', color: '#f97316', label: 'MISSED'    },
   resolved:          { icon: '✅', color: '#10b981', label: 'RESOLVED'  },
   info:              { icon: 'ℹ️',  color: '#64748b', label: 'INFO'      },
+  decision:          { icon: '🧠', color: '#a855f7', label: 'DECISION'  },
 };
 
 export class AlertPanel {
@@ -50,7 +51,8 @@ export class AlertPanel {
     const cards = alerts.map(a => {
       const cfg     = TYPE_CFG[a.type] || TYPE_CFG.info;
       const simDay  = typeof a.simDay === 'number' ? `Day ${a.simDay.toFixed(1)}` : '';
-      const extra   = a.details?.savedDays > 0.05
+      
+      let extra   = a.details?.savedDays > 0.05
         ? `<div style="color:#10b981;font-size:10px;margin-top:2px;">💾 Saved ${a.details.savedDays.toFixed(1)}d</div>`
         : a.details?.delayDays > 0.05
           ? `<div style="color:#fbbf24;font-size:10px;margin-top:2px;">+${a.details.delayDays.toFixed(1)}d delay predicted</div>`
@@ -59,6 +61,26 @@ export class AlertPanel {
       const reasonLine = a.details?.trigger
         ? `<div style="font-size:9px;color:#475569;margin-top:2px;font-style:italic;">${a.details.trigger}</div>`
         : '';
+
+      if (a.type === 'decision' && a.details) {
+         extra = `
+         <div style="background:rgba(0,0,0,0.2); border-radius:4px; padding:6px; margin-top:6px;">
+            <div style="font-size:10px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase;">Options Evaluated:</div>
+            <ul style="margin:0; padding-left:14px; font-size:10px; color:#cbd5e1; line-height:1.4;">
+               <li>Go Through: ${a.details.throughTime === Infinity ? 'Blocked (Cross-Infinity)' : `${a.details.throughTime.toFixed(1)}d total time`}</li>
+               <li>Go Around: ${a.details.aroundTime === Infinity ? 'Unviable/Blocked' : `${a.details.aroundTime.toFixed(1)}d total time`}</li>
+               <li>Wait: ${a.details.waitTime === Infinity ? 'Indefinite' : `${a.details.waitTime.toFixed(1)}d total time`}</li>
+            </ul>
+            <div style="margin-top:6px; font-size:11px;">
+               <span style="color:#10b981; font-weight:700;">✅ Selected: ${a.details.decision}</span>
+            </div>
+            <div style="margin-top:2px; font-size:10px; color:var(--text-muted);">
+               ${a.details.reason}
+            </div>
+         </div>
+         ${a.details.savedTime ? `<div style="color:#10b981;font-size:10px;margin-top:4px;font-weight:700;">💾 Action vs Baseline: Saved ${a.details.savedTime.toFixed(1)} days</div>` : ''}
+         `;
+      }
 
       return `
         <div class="alert-card" style="

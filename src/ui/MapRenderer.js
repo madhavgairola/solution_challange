@@ -432,6 +432,31 @@ export class MapRenderer {
     this.routeHighlights.slice().reverse().forEach(layer => layer.bringToFront());
   }
 
+  highlightWeakPoints(weakPointNodes) {
+    // Reset all nodes first
+    this.nodeLayers.forEach((marker, id) => {
+      marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
+      marker.setRadius(Math.max(2.0, this.map.getZoom() * 1.2));
+    });
+
+    if (!weakPointNodes || weakPointNodes.length === 0) return;
+
+    weakPointNodes.forEach(wp => {
+       const marker = this.nodeLayers.get(wp.nodeId);
+       if (marker) {
+          // Pulse severe red for weak point
+          marker.setStyle({ fillColor: '#ef4444', color: '#dc2626', radius: 8, weight: 3, fillOpacity: 1.0 });
+          marker.bringToFront();
+          
+          if (!marker.getTooltip()) {
+             marker.bindTooltip(`<b>Weak Point</b><br/>${wp.cause}`, { direction: 'top' });
+          } else {
+             marker.setTooltipContent(`<b>Weak Point</b><br/>${wp.cause}`);
+          }
+       }
+    });
+  }
+
   applyDisruptionVisuals(activeEvents, graph) {
     // Reset all nodes to tiny resting background dots
     this.nodeLayers.forEach((marker, id) => {
