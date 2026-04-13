@@ -631,7 +631,7 @@ h1 {
 
 .nav-sidebar {
   position: absolute;
-  top: 72px;
+  top: 20px;
   left: 16px;
   width: 44px;
   background: var(--bg-secondary);
@@ -645,7 +645,7 @@ h1 {
 
 .floating-mount-panel {
   position: absolute;
-  top: 72px;
+  top: 20px;
   left: 68px; /* perfectly hugs the nav-sidebar */
   bottom: 20px; /* stretch to bottom with nice padding */
   width: 320px;
@@ -885,21 +885,18 @@ h1 {
 
 /* Agent Fleet Telemetry Overlay */
 .telemetry-panel {
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  width: 340px;
-  max-height: 400px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  /* Dynamic positioning handled by JS */
+  background: transparent;
+  border: none;
+  border-radius: 0;
   display: flex;
-  flex-direction: column;
-  z-index: 2000;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-  overflow: hidden;
+  flex-direction: row;
+  z-index: 1500;
+  box-shadow: none;
+  pointer-events: none;
+}
+.telemetry-panel > * {
+  pointer-events: all;
 }
 
 .telemetry-header {

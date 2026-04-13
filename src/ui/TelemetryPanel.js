@@ -26,17 +26,24 @@ export class TelemetryPanel {
     
     document.body.appendChild(this.container);
 
+    this.collapsed = false;
+    this.container.style.transition = "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)";
     this.lastRenderTime = 0;
     this.render();
   }
 
+  toggle() {
+    this.collapsed = !this.collapsed;
+    if (this.collapsed) {
+      this.container.style.transform = 'translateX(-120%)';
+    } else {
+      this.container.style.transform = 'translateX(0)';
+    }
+  }
+
   render() {
-    // We remove the old header and just use the box for cards
-    this.container.innerHTML = `
-         <div style="color: var(--text-muted); font-size: 11px; padding: 20px; width: 100%; text-align: center;">
-           Awaiting Agent Deployments...
-         </div>
-    `;
+    // Initial empty state
+    this.update();
   }
 
   // Called natively from ShipmentEngine on 60FPS loop, but throttled locally to prevent DOM melting
@@ -44,9 +51,19 @@ export class TelemetryPanel {
     if (Date.now() - this.lastRenderTime < 300) return; // 300ms UI throttler
     this.lastRenderTime = Date.now();
 
+    const renderToggle = () => `
+      <div style="position: absolute; right: -24px; top: 8px; cursor:pointer;" onclick="window.simulation.telemetry?.toggle()">
+        <div style="width:24px; height:24px; background:var(--bg-secondary); border:1px solid var(--glass-border); border-radius: 0 4px 4px 0; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size: 10px;">◀</div>
+      </div>
+    `;
+
     // Remove old header lookup, we write directly to container
     if (!shipments || shipments.length === 0) {
-        this.container.innerHTML = '<div style="color: var(--text-muted); font-size: 11px; width: 100%; text-align: center; margin-top:20px;">Fleet Idle. Awaiting Deployments...</div>';
+        this.container.innerHTML = `
+          <div class="glass-panel" style="background: var(--bg-primary); border: 1px solid var(--glass-border); border-radius: 6px; padding: 12px 24px; color: var(--text-muted); font-size: 11px; text-align: center; position: relative;">
+            Fleet Idle. Awaiting Deployments...
+            ${renderToggle()}
+          </div>`;
         return;
     }
 
@@ -158,6 +175,11 @@ export class TelemetryPanel {
         `;
     });
 
-    this.container.innerHTML = html;
+    this.container.innerHTML = `
+      <div style="display:flex; flex-direction:row; gap:12px; position: relative;">
+        ${html}
+        ${renderToggle()}
+      </div>
+    `;
   }
 }

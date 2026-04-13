@@ -48,6 +48,7 @@ window.simulation = {
   intelligence: liveAgent,
   alerts:       alertEngine,
   analyzer:     routeAnalyzer,
+  telemetry:    window._telemetryPanelTemp, // will be assigned after init
 };
 
 // Load Nodes (Ports)
@@ -79,6 +80,7 @@ const navSidebar = new NavSidebar(sandboxDashboard, irlDashboard, mapRenderer);
 // Initialize Global Telemetry Tracker
 const telemetryPanel = new TelemetryPanel();
 shipmentEngine.telemetryPanel = telemetryPanel;
+window.simulation.telemetry = telemetryPanel;
 
 console.log('✅ Visualization Engine Hooked.');
 

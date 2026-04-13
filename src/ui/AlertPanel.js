@@ -118,15 +118,17 @@ export class AlertPanel {
       <div class="glass-panel" style="
         border-radius: 8px;
         overflow: hidden;
-        background: var(--bg-primary);
+        background: transparent;
       ">
         <!-- Header -->
         <div id="alert-toggle" style="
           padding: 8px 12px;
           display: flex; justify-content: space-between; align-items: center;
-          border-bottom: 1px solid var(--glass-border);
           cursor: pointer; user-select: none;
-          background: var(--bg-secondary);
+          background: rgba(0, 0, 0, 0.4);
+          backdrop-filter: blur(4px);
+          border-radius: 8px 8px 0 0;
+          border-bottom: 1px solid var(--glass-border);
         ">
           <div style="display:flex;align-items:center;">
             <div style="width:4px; height:4px; border-radius:50%; background:var(--accent); margin-right:6px; box-shadow: 0 0 4px var(--accent);"></div>
@@ -138,8 +140,8 @@ export class AlertPanel {
 
         ${!this.collapsed ? `
         <div style="
-          max-height: 50vh; overflow-y: auto; padding: 10px;
-          scrollbar-width: thin; scrollbar-color: var(--glass-border) transparent;
+          max-height: 250px; overflow-y: auto; padding: 10px;
+          scrollbar-width: none;
         ">
           ${count === 0 ? emptyState : cards}
         </div>` : ''}
