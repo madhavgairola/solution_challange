@@ -5,11 +5,11 @@ import { ScheduleBoard } from './ScheduleBoard.js';
  *
  * UX Model:
  *   - HOME: centered overlay with two choices (Sandbox / Live Intelligence)
+ *     + live demo activity on the map (ships, anomalies, route highlights)
  *   - Choosing one enters that MODE. Mode persists until Home is pressed.
- *   - Right panel is a TOOL DRAWER — open/close freely. Closing it does NOT
- *     change mode — you're still in Sandbox/Live, just focusing on the map.
- *   - Schedule Board is a tab INSIDE each dashboard, not its own mode.
- *   - Home button (in left sidebar) explicitly returns to Home overlay.
+ *   - Right panel is a TOOL DRAWER — open/close freely without losing mode.
+ *   - Schedule Board is a tab INSIDE each dashboard.
+ *   - Floating Home button always accessible (bottom-left corner).
  */
 export class NavSidebar {
   constructor(sandboxView, irlView, mapRenderer) {
@@ -18,15 +18,17 @@ export class NavSidebar {
     this.mapRenderer   = mapRenderer;
     this.scheduleBoard = new ScheduleBoard(null);
 
-    this.currentView   = null;   // currently mounted view component
-    this.currentMode   = null;   // 'sandbox' | 'irl' — persists until Home
-    this.activeTab     = null;   // 'main' | 'schedule'
+    this.currentView   = null;
+    this.currentMode   = null;
+    this.activeTab     = null;
+    this._demoRunning  = false;
 
     this._buildHomeOverlay();
     this._buildRightPanel();
     this._buildRightPanelToggle();
+    this._buildFloatingHomeBtn();
 
-    // Boot into Home
+    // Boot into Home with demo
     this.goHome();
   }
 
@@ -37,24 +39,45 @@ export class NavSidebar {
     this.homeOverlay = document.createElement('div');
     this.homeOverlay.id = 'home-overlay';
     this.homeOverlay.innerHTML = `
-      <div class="home-card-container">
-        <div class="home-card" data-target="sandbox">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-            <polyline points="2 17 12 22 22 17"></polyline>
-            <polyline points="2 12 12 17 22 12"></polyline>
-          </svg>
-          <div class="home-card-title">Simulation Sandbox</div>
-          <div class="home-card-desc">Manual execution environment with system override controls</div>
+      <div class="home-hero">
+        <div class="home-brand">
+          <div class="home-brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+              <path d="M2 17l10 5 10-5"></path>
+              <path d="M2 12l10 5 10-5"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="home-brand-name">Deep Spec</div>
+            <div class="home-brand-tag">Maritime Intelligence System</div>
+          </div>
         </div>
-        <div class="home-card" data-target="irl">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="2" y1="12" x2="22" y2="12"></line>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-          </svg>
-          <div class="home-card-title">Live Intelligence</div>
-          <div class="home-card-desc">Auto-generating operational risks mapping live geopolitics</div>
+        <div class="home-card-container">
+          <div class="home-card" data-target="sandbox">
+            <div class="home-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+            <div class="home-card-title">Simulation Sandbox</div>
+            <div class="home-card-desc">Route planning, disruption injection, and fleet deployment</div>
+            <div class="home-card-cta">Enter Sandbox →</div>
+          </div>
+          <div class="home-card" data-target="irl">
+            <div class="home-card-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+            </div>
+            <div class="home-card-title">Live Intelligence</div>
+            <div class="home-card-desc">Real-time geopolitical risk mapping and operational analysis</div>
+            <div class="home-card-cta">Go Live →</div>
+          </div>
         </div>
       </div>
     `;
@@ -65,6 +88,24 @@ export class NavSidebar {
         this.enterMode(card.dataset.target);
       });
     });
+  }
+
+  /* ──────────────────────────────────────────────────────────────────── */
+  /*  FLOATING HOME BUTTON — always accessible                           */
+  /* ──────────────────────────────────────────────────────────────────── */
+  _buildFloatingHomeBtn() {
+    this.floatingHome = document.createElement('div');
+    this.floatingHome.className = 'floating-home-btn';
+    this.floatingHome.title = 'Return Home';
+    this.floatingHome.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+    `;
+    this.floatingHome.style.display = 'none'; // hidden on home screen
+    this.floatingHome.addEventListener('click', () => this.goHome());
+    document.body.appendChild(this.floatingHome);
   }
 
   /* ──────────────────────────────────────────────────────────────────── */
@@ -103,19 +144,16 @@ export class NavSidebar {
     `;
     document.body.appendChild(this.rightPanel);
 
-    // Close button — just hides drawer, does NOT change mode
     this.rightPanel.querySelector('#right-panel-close').addEventListener('click', () => {
       this.closeDrawer();
     });
 
-    // Tab switching: main dashboard vs schedule board
     this.rightPanel.querySelectorAll('.right-panel-tab').forEach(tab => {
       tab.addEventListener('click', () => {
         this.switchTab(tab.dataset.tab);
       });
     });
 
-    // Telemetry toggle
     this.rightPanel.querySelector('#telemetry-section-toggle').addEventListener('click', () => {
       const content = this.rightPanel.querySelector('#telemetry-mount');
       const arrow   = this.rightPanel.querySelector('#telemetry-arrow');
@@ -129,9 +167,6 @@ export class NavSidebar {
     });
   }
 
-  /* ──────────────────────────────────────────────────────────────────── */
-  /*  RIGHT PANEL TOGGLE — floating button to reopen drawer              */
-  /* ──────────────────────────────────────────────────────────────────── */
   _buildRightPanelToggle() {
     this.drawerToggle = document.createElement('div');
     this.drawerToggle.id = 'drawer-toggle';
@@ -142,7 +177,7 @@ export class NavSidebar {
         <polyline points="15 18 9 12 15 6"></polyline>
       </svg>
     `;
-    this.drawerToggle.style.display = 'none'; // hidden until a mode is active
+    this.drawerToggle.style.display = 'none';
     document.body.appendChild(this.drawerToggle);
 
     this.drawerToggle.addEventListener('click', () => {
@@ -151,7 +186,7 @@ export class NavSidebar {
   }
 
   /* ──────────────────────────────────────────────────────────────────── */
-  /*  HOME BUTTON (injected into PortSidebar)                            */
+  /*  Also inject Home button into PortSidebar (for consistency)         */
   /* ──────────────────────────────────────────────────────────────────── */
   injectHomeButton(portSidebar) {
     this.portSidebar = portSidebar;
@@ -172,24 +207,22 @@ export class NavSidebar {
   /*  NAVIGATION LOGIC                                                   */
   /* ──────────────────────────────────────────────────────────────────── */
 
-  /** Enter a mode from the Home screen */
   enterMode(mode) {
+    this._stopDemo();
     this.homeOverlay.style.display = 'none';
+    this.floatingHome.style.display = 'flex';
     this.currentMode = mode;
 
-    // Wipe previous sim state
     this._wipeSimulationClean();
-
-    // Mount the mode's dashboard in the right panel
     this.switchTab('main');
     this._updateTitle();
     this.openDrawer();
   }
 
-  /** Return to Home — full reset */
   goHome() {
     this.closeDrawer();
     this.drawerToggle.style.display = 'none';
+    this.floatingHome.style.display = 'none';
 
     if (this.currentView) {
       this.currentView.unmount();
@@ -200,16 +233,17 @@ export class NavSidebar {
     this.activeTab = null;
     this._wipeSimulationClean();
     this.homeOverlay.style.display = 'flex';
+
+    // Launch demo activity after a short delay
+    setTimeout(() => this._startDemo(), 400);
   }
 
-  /** Open the right panel drawer (only if in a mode) */
   openDrawer() {
     if (!this.currentMode) return;
     this.rightPanel.classList.add('open');
     this.drawerToggle.style.display = 'none';
   }
 
-  /** Close the right panel drawer — mode persists */
   closeDrawer() {
     this.rightPanel.classList.remove('open');
     if (this.currentMode) {
@@ -217,11 +251,9 @@ export class NavSidebar {
     }
   }
 
-  /** Switch between "Controls" and "Schedule" tabs */
   switchTab(tabId) {
     if (!this.currentMode) return;
 
-    // Unmount current
     if (this.currentView) {
       this.currentView.unmount();
       this.currentView = null;
@@ -247,7 +279,6 @@ export class NavSidebar {
       this.currentView.mount();
     }
 
-    // Update tab active states
     this.rightPanel.querySelectorAll('.right-panel-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.tab === tabId);
     });
@@ -257,6 +288,83 @@ export class NavSidebar {
     const titles = { sandbox: 'Simulation Sandbox', irl: 'Live Intelligence' };
     const titleEl = this.rightPanel.querySelector('#right-panel-title');
     if (titleEl) titleEl.textContent = titles[this.currentMode] || 'Dashboard';
+  }
+
+  /* ──────────────────────────────────────────────────────────────────── */
+  /*  HOME DEMO — spawn ships, anomalies, route highlights               */
+  /* ──────────────────────────────────────────────────────────────────── */
+  _startDemo() {
+    if (this._demoRunning) return;
+    this._demoRunning = true;
+
+    const sim = window.simulation;
+    if (!sim || !sim.shipments || !sim.events) return;
+
+    // Demo routes — visually striking cross-ocean paths
+    const demoRoutes = [
+      ['Singapore', 'Rotterdam'],     // through Suez
+      ['Shanghai', 'Hamburg'],         // Asia → Europe
+      ['Mumbai', 'New York'],          // Indian Ocean → Atlantic
+      ['Dubai', 'Rotterdam'],          // Gulf → Europe
+      ['Busan', 'Los Angeles'],        // Trans-Pacific
+      ['Colombo', 'Durban'],           // Indian Ocean south
+      ['Shenzhen', 'Balboa'],          // East Asia → Panama
+      ['Tokyo', 'Rotterdam'],          // Full circumnavigation
+    ];
+
+    // Stagger ship spawns for visual effect
+    demoRoutes.forEach((route, i) => {
+      setTimeout(() => {
+        if (!this._demoRunning) return;
+        sim.shipments.spawnShipment(route[0], route[1], {
+          priority: Math.floor(Math.random() * 3) + 2,
+          scheduledDepartureDay: 0
+        });
+      }, i * 300);
+    });
+
+    // Inject 2 anomalies for visual drama
+    setTimeout(() => {
+      if (!this._demoRunning) return;
+      // Storm in Indian Ocean
+      sim.events.injectGeometricEvent(
+        'demo_storm', { lat: 10.0, lng: 65.0 }, 800000,
+        'warning', 'Indian Ocean Storm System'
+      );
+    }, 1500);
+
+    setTimeout(() => {
+      if (!this._demoRunning) return;
+      // Congestion near Malacca Strait
+      sim.events.injectGeometricEvent(
+        'demo_congestion', { lat: 4.0, lng: 100.0 }, 400000,
+        'critical', 'Malacca Strait Congestion'
+      );
+    }, 2500);
+
+    // Boost sim speed briefly to get ships moving, then settle
+    window.simulationSpeed = 4.0;
+    setTimeout(() => {
+      window.simulationSpeed = 2.0;
+    }, 3000);
+
+    // Highlight 2 major routes after ships are out
+    setTimeout(() => {
+      if (!this._demoRunning) return;
+      try {
+        const routes1 = sim.routing.getKShortestPaths('Singapore', 'Rotterdam', 1);
+        const routes2 = sim.routing.getKShortestPaths('Shanghai', 'Hamburg', 1);
+        const allRoutes = [...routes1, ...routes2];
+        if (allRoutes.length > 0 && this.mapRenderer) {
+          this.mapRenderer.drawCalculatedRoutes(allRoutes, sim.graph);
+        }
+      } catch (e) { /* silently ignore */ }
+    }, 2000);
+  }
+
+  _stopDemo() {
+    this._demoRunning = false;
+    window.simulationSpeed = 1.0;
   }
 
   /* ──────────────────────────────────────────────────────────────────── */
@@ -279,6 +387,16 @@ export class NavSidebar {
     if (sim.events) {
       sim.events.activeEvents.clear();
       sim.events._recalculateAllWeights();
+    }
+
+    // Clear any route highlights
+    if (this.mapRenderer && this.mapRenderer.clearRouteHighlights) {
+      this.mapRenderer.clearRouteHighlights();
+    }
+
+    // Clear weak point markers
+    if (this.mapRenderer && this.mapRenderer.clearWeakPoints) {
+      this.mapRenderer.clearWeakPoints();
     }
   }
 }

@@ -457,6 +457,27 @@ export class MapRenderer {
     });
   }
 
+  clearRouteHighlights() {
+    if (this.routeHighlights) {
+      this.routeHighlights.forEach(layer => layer.remove());
+      this.routeHighlights = [];
+    }
+    // Reset nodes to resting state
+    const dynamicRadius = Math.max(2.0, this.map.getZoom() * 1.2);
+    this.nodeLayers.forEach(marker => {
+      marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
+      marker.setRadius(dynamicRadius);
+    });
+  }
+
+  clearWeakPoints() {
+    const dynamicRadius = Math.max(2.0, this.map.getZoom() * 1.2);
+    this.nodeLayers.forEach(marker => {
+      marker.setStyle({ fillColor: 'rgba(255, 255, 255, 0.25)', color: 'transparent', weight: 0 });
+      marker.setRadius(dynamicRadius);
+    });
+  }
+
   applyDisruptionVisuals(activeEvents, graph) {
     // Reset all nodes to tiny resting background dots
     this.nodeLayers.forEach((marker, id) => {

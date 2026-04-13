@@ -708,43 +708,131 @@ h1 {
   justify-content: center;
   pointer-events: none;
 }
+.home-hero {
+  pointer-events: all;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+}
+.home-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.home-brand-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(62, 207, 142, 0.1);
+  border: 1px solid rgba(62, 207, 142, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.home-brand-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+.home-brand-tag {
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.3px;
+}
 .home-card-container {
   display: flex;
   gap: 20px;
-  pointer-events: all;
 }
 .home-card {
-  width: 200px;
-  padding: 28px 20px;
-  background: rgba(17, 23, 21, 0.75);
-  backdrop-filter: blur(12px);
+  width: 220px;
+  padding: 28px 24px;
+  background: rgba(11, 15, 12, 0.8);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 14px;
   cursor: pointer;
   text-align: center;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-primary);
 }
 .home-card:hover {
   border-color: var(--accent);
-  background: rgba(17, 23, 21, 0.9);
-  transform: translateY(-4px);
-  box-shadow: 0 12px 40px rgba(62, 207, 142, 0.08);
+  background: rgba(11, 15, 12, 0.92);
+  transform: translateY(-6px);
+  box-shadow: 0 20px 60px rgba(62, 207, 142, 0.1), 0 0 0 1px rgba(62, 207, 142, 0.15);
 }
-.home-card svg {
-  margin-bottom: 12px;
+.home-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  background: rgba(62, 207, 142, 0.08);
+  border: 1px solid rgba(62, 207, 142, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px auto;
   color: var(--accent);
+  transition: all 0.3s;
+}
+.home-card:hover .home-card-icon {
+  background: rgba(62, 207, 142, 0.15);
+  border-color: rgba(62, 207, 142, 0.3);
+  transform: scale(1.05);
 }
 .home-card-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   letter-spacing: 0.3px;
 }
 .home-card-desc {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.home-card-cta {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.25s;
+}
+.home-card:hover .home-card-cta {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   FLOATING HOME BUTTON — always accessible at bottom-left
+   ═══════════════════════════════════════════════════════════════════ */
+.floating-home-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 5000;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(11, 15, 12, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.floating-home-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(62, 207, 142, 0.05);
+  transform: scale(1.08);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
