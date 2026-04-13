@@ -1,9 +1,13 @@
 import { PORTS, PORT_GRAPH } from '../data/network.js';
 
+/**
+ * PortSidebar — Always-visible left panel showing Global Topologies.
+ * 
+ * No toggle button. Always open. Home button is injected by NavSidebar.
+ */
 export class PortSidebar {
   constructor(mapRenderer) {
     this.mapRenderer = mapRenderer;
-    this.isOpen = false;
     this.container = document.createElement('div');
     this.container.className = 'port-sidebar';
     
@@ -15,38 +19,10 @@ export class PortSidebar {
     });
 
     document.body.appendChild(this.container);
-
-    this.toggleBtn = document.createElement('button');
-    this.toggleBtn.className = 'sidebar-toggle-btn';
-    this.toggleBtn.innerHTML = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
-    `;
-    this.toggleBtn.onclick = () => this.toggle();
-    document.body.appendChild(this.toggleBtn);
-
     this.renderOverview();
   }
 
-  toggle() {
-    this.isOpen = !this.isOpen;
-    if (this.isOpen) {
-      this.container.classList.add('open');
-      this.toggleBtn.classList.add('shifted');
-    } else {
-      this.container.classList.remove('open');
-      this.toggleBtn.classList.remove('shifted');
-      // Reset view to overview on close
-      setTimeout(() => this.renderOverview(), 300);
-    }
-  }
-
   showPortDetails(portId) {
-    if (!this.isOpen) this.toggle();
-
     const port = PORTS.find(p => p.id === portId);
     if (!port) return;
 
@@ -59,7 +35,7 @@ export class PortSidebar {
     let html = `
       <div class="sidebar-header">
         <button class="back-btn" id="sidebar-back-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 18 9 12 15 6"></polyline>
           </svg>
           Back
@@ -80,7 +56,7 @@ export class PortSidebar {
           <li class="route-item" data-dest="${r.to}">
             <div class="route-name">
               <span class="route-origin">${port.name}</span>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12"></line>
                 <polyline points="12 5 19 12 12 19"></polyline>
               </svg>
@@ -99,7 +75,10 @@ export class PortSidebar {
       </div>
     `;
 
+    // Preserve the home button if it exists
+    const homeBtn = this.container.querySelector('.port-sidebar-home-btn');
     this.container.innerHTML = html;
+    if (homeBtn) this.container.appendChild(homeBtn);
     
     document.getElementById('sidebar-back-btn').onclick = () => this.renderOverview();
     
@@ -149,7 +128,11 @@ export class PortSidebar {
     }
 
     html += `</div>`;
+
+    // Preserve the home button if it exists
+    const homeBtn = this.container.querySelector('.port-sidebar-home-btn');
     this.container.innerHTML = html;
+    if (homeBtn) this.container.appendChild(homeBtn);
 
     // Attach click listeners to individual port listings
     const links = this.container.querySelectorAll('.port-link');

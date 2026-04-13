@@ -48,7 +48,6 @@ window.simulation = {
   intelligence: liveAgent,
   alerts:       alertEngine,
   analyzer:     routeAnalyzer,
-  telemetry:    window._telemetryPanelTemp, // will be assigned after init
 };
 
 // Load Nodes (Ports)
@@ -64,32 +63,41 @@ shipmentEngine.scheduleEngine = scheduleEngine;
 const allNodes = supplyChainGraph.getAllNodes();
 const allEdges = supplyChainGraph.getAllEdges();
 
-// UI overlays removed per request
-
 mapRenderer.renderNodes(allNodes);
 mapRenderer.renderEdges(allNodes, allEdges);
 
+// ── Left Panel: Global Topologies (always visible) ──────────────────
 const sidebar = new PortSidebar(mapRenderer);
 mapRenderer.sidebar = sidebar;
 
-// Initialize Left Nav Dashboard Router
+// ── Dashboards ──────────────────────────────────────────────────────
 const sandboxDashboard = new SandboxDashboard();
 const irlDashboard = new IRLDashboard(null, liveAgent);
+
+// ── NavSidebar: orchestrator (Home overlay + Right panel) ───────────
 const navSidebar = new NavSidebar(sandboxDashboard, irlDashboard, mapRenderer);
 
-// Initialize Global Telemetry Tracker
+// Inject home button into the left PortSidebar
+navSidebar.injectHomeButton(sidebar);
+
+// ── Fleet Telemetry: mounted inside right panel ─────────────────────
 const telemetryPanel = new TelemetryPanel();
 shipmentEngine.telemetryPanel = telemetryPanel;
 window.simulation.telemetry = telemetryPanel;
 
-console.log('✅ Visualization Engine Hooked.');
+// Mount telemetry into the right panel's telemetry slot
+const telemetryMount = document.getElementById('telemetry-mount');
+if (telemetryMount) {
+  telemetryPanel.mountInto(telemetryMount);
+}
 
-// ── Mount UI Overlays ──────────────────────────────────────────────
+console.log('Visualization Engine Hooked.');
+
+// ── Intelligence Feed (bottom center) ───────────────────────────────
 const alertPanel = new AlertPanel(alertEngine);
 const kpiBar     = new KPIBar(alertEngine);
 
 // ── Patch EventEngine to fire alerts on disruption injection ─────────
-// We monkey-patch the inject methods so EventEngine stays decoupled.
 const _origGeo = eventEngine.injectGeometricEvent?.bind(eventEngine);
 if (_origGeo) {
   eventEngine.injectGeometricEvent = (ruleKey, pos, radius, severity, name) => {
@@ -98,7 +106,7 @@ if (_origGeo) {
     const sev    = severity === 'blocked' ? 'critical' : severity === 'critical' ? 'critical' : 'warning';
     alertEngine.emit(
       'blockage', sev,
-      `🌍 ${label} detected — ${sev === 'critical' ? 'route blocked' : 'degraded conditions'}`,
+      `${label} detected — ${sev === 'critical' ? 'route blocked' : 'degraded conditions'}`,
       { lat: pos.lat, lng: pos.lng, severity },
       `geo-${ruleKey}`
     );
@@ -111,7 +119,7 @@ if (_origEvt) {
     const result = _origEvt(key, ...args);
     alertEngine.emit(
       'blockage', 'critical',
-      `🚨 ${key.replace(/_/g,' ')} — route corridor blocked`,
+      `${key.replace(/_/g,' ')} — route corridor blocked`,
       {},
       `evt-${key}`
     );
@@ -120,8 +128,6 @@ if (_origEvt) {
 }
 
 window.simulationSpeed = 1.0;
-// Simulation clock: records the real epoch when the sim started.
-// The HTML clock widget reads these to show simulation date/time.
 window._simStartEpoch      = Date.now();
 window.simulationElapsedDays = 0;
 
@@ -131,22 +137,17 @@ function gameLoop(currentTime) {
   let dt = currentTime - lastTime;
   lastTime = currentTime;
   
-  // Real-time speed modulation wrapper
   dt *= window.simulationSpeed || 1.0;
   
   shipmentEngine.update(dt);
   eventEngine.update(dt);
   
-  // Advance the global simulation clock (dt is already speed-scaled)
-  window.simulationElapsedDays += dt / 30000; // 30000 ms = 1 sim day
+  window.simulationElapsedDays += dt / 30000;
   
   requestAnimationFrame(gameLoop);
 }
 
-// Ensure the map waits for initial drawing safely
 setTimeout(() => {
   requestAnimationFrame(gameLoop);
-  console.log('✅ 60FPS Simulation Physics Loop Running.');
+  console.log('60FPS Simulation Physics Loop Running.');
 }, 500);
-
-// Engine initialization completes. Panels removed for fullscreen map viewing.
