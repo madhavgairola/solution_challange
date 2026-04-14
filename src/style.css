@@ -811,14 +811,12 @@ h1 {
   transform: translateY(0);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   MAP OVERLAY — translucent layer over map for home screen
-   ═══════════════════════════════════════════════════════════════════ */
 #home-map-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 3500;
   background: rgba(8, 12, 10, 0.4);
+  backdrop-filter: blur(4px);
   pointer-events: none;
   transition: opacity 0.4s ease;
 }

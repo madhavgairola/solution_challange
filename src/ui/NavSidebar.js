@@ -352,6 +352,12 @@ export class NavSidebar {
       ['Colombo', 'Durban'],           // Indian Ocean south
       ['Shenzhen', 'Balboa'],          // East Asia → Panama
       ['Tokyo', 'Rotterdam'],          // Full circumnavigation
+      ['Port Said', 'Mumbai'],
+      ['Chennai', 'Singapore'],
+      ['Dammam', 'Colombo'],
+      ['Jeddah', 'Shanghai'],
+      ['Salalah', 'Antwerp'],
+      ['Tanjung Priok', 'Dubai']
     ];
 
     // Stagger ship spawns for visual effect
