@@ -132,7 +132,7 @@ export class AlertPanel {
         ">
           <div style="display:flex;align-items:center;">
             <div style="width:4px; height:4px; border-radius:50%; background:var(--accent); margin-right:6px; box-shadow: 0 0 4px var(--accent);"></div>
-            <span style="font-size:11px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">INTELLIGENCE FEED</span>
+            <span style="font-size:11px;color:var(--text-primary);font-weight:600;letter-spacing:0.5px;">ALERTS</span>
             ${badge}
           </div>
           <span style="font-size:10px;color:var(--text-muted);">${this.collapsed ? '▼ SHOW' : '▲ HIDE'}</span>

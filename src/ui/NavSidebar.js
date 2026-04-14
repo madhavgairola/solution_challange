@@ -24,6 +24,7 @@ export class NavSidebar {
     this._demoRunning  = false;
 
     this._buildHomeOverlay();
+    this._buildMapOverlay();
     this._buildRightPanel();
     this._buildRightPanelToggle();
     this._buildFloatingHomeBtn();
@@ -83,11 +84,26 @@ export class NavSidebar {
     `;
     document.body.appendChild(this.homeOverlay);
 
+    // Remove Leaflet attribution
+    setTimeout(() => {
+      const attr = document.querySelector('.leaflet-control-attribution');
+      if (attr) attr.style.display = 'none';
+    }, 500);
+
     this.homeOverlay.querySelectorAll('.home-card').forEach(card => {
       card.addEventListener('click', () => {
         this.enterMode(card.dataset.target);
       });
     });
+  }
+
+  /* ──────────────────────────────────────────────────────────────────── */
+  /*  MAP OVERLAY — translucent layer over the map for home screen       */
+  /* ──────────────────────────────────────────────────────────────────── */
+  _buildMapOverlay() {
+    this.mapOverlay = document.createElement('div');
+    this.mapOverlay.id = 'home-map-overlay';
+    document.body.appendChild(this.mapOverlay);
   }
 
   /* ──────────────────────────────────────────────────────────────────── */
@@ -210,8 +226,21 @@ export class NavSidebar {
   enterMode(mode) {
     this._stopDemo();
     this.homeOverlay.style.display = 'none';
+    this.mapOverlay.style.display = 'none';
     this.floatingHome.style.display = 'flex';
     this.currentMode = mode;
+
+    // Show alerts, sidebar, and KPI bar in mode
+    const alertEl = document.getElementById('alert-panel');
+    if (alertEl) alertEl.style.display = '';
+    if (this.portSidebar) this.portSidebar.wrapper.style.display = '';
+    const kpiBar = document.getElementById('top-bar-container');
+    if (kpiBar) kpiBar.style.display = '';
+
+    // Reset map to world view
+    if (this.mapRenderer && this.mapRenderer.map) {
+      this.mapRenderer.map.setView([20, 40], 2, { animate: true, duration: 0.8 });
+    }
 
     this._wipeSimulationClean();
     this.switchTab('main');
@@ -233,6 +262,19 @@ export class NavSidebar {
     this.activeTab = null;
     this._wipeSimulationClean();
     this.homeOverlay.style.display = 'flex';
+    this.mapOverlay.style.display = 'block';
+
+    // Hide alerts, sidebar, and KPI bar on home
+    const alertEl = document.getElementById('alert-panel');
+    if (alertEl) alertEl.style.display = 'none';
+    if (this.portSidebar) this.portSidebar.wrapper.style.display = 'none';
+    const kpiBar = document.getElementById('top-bar-container');
+    if (kpiBar) kpiBar.style.display = 'none';
+
+    // Zoom map to Indian Ocean / Middle East — the demo action area
+    if (this.mapRenderer && this.mapRenderer.map) {
+      this.mapRenderer.map.setView([18, 68], 4, { animate: true, duration: 1.0 });
+    }
 
     // Launch demo activity after a short delay
     setTimeout(() => this._startDemo(), 400);
